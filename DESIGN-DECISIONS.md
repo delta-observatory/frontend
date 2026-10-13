@@ -14,6 +14,15 @@ No frontend code exists.
 | Sky view | The interface shows a star field on a dome. Observations, results, and tests show as overlays on the sky. |
 | Sky frame | A sky sphere in equatorial coordinates with no observing site and no horizon. The camera is at the center. Every target is visible. |
 | Layout | L2, sky over workbench. The sky fills the top part, with the catalogue on it. The workbench below holds a full-width light curve, the periodogram, the phase fold, and the inspector. A movable rule sets the space between the two parts. |
+| Selection | A click on a sky marker or a catalogue row selects the target. The sky turns to the target in 0.3–0.9 s. **j** and **k** select the next and previous target in the filtered list. |
+| Navigation | North up. A drag turns the sky, and the wheel zooms. **F** turns the sky to the selected target. |
+| Motion | Animated by default. A reduced-motion setting removes camera animation. |
+| Hover | A tooltip shows the values of a sky marker. When the pointer is on a catalogue row, its sky marker shows a frame. |
+| Search | Free text, field filters (`snr`, `err`, `p`, `pref`, `tmag`, `sector`), and class buttons. Targets that do not match become dim on the sky. They stay visible. |
+| All-sky map | A small all-sky map shows all targets and the current view. A click on the map turns the sky to that position. |
+| Light curve | A drag selects a time range. The phase fold then uses only that range. The pointer time shows as a line in the fold. **Esc** clears the range. |
+| Display fold | A click on a periodogram peak folds the data at that period. The fold title says "not a stored result", and the box model is hidden. **Esc** returns to the stored result. |
+| Keys | **/** search, **j** and **k** next and previous, **F** fly to target, **Esc** clear, **+** and **−** zoom. |
 | Shape | Sharp corners on all panels, controls, and markers that have a box shape. |
 | Density | A precise and dense layout. |
 | Character | Technical and restrained. The interface must not look like a generic web application template. |
@@ -49,7 +58,6 @@ The first vertical starts with target inspection for these reasons:
 
 | Item | Required decision |
 |---|---|
-| Interaction model | Sky navigation, selection, links between plots, search, and keyboard use. |
 | Performance targets | Load time, frame rate, interaction latency, and browser memory. |
 | Tools | DESIGN.md requires React and Three.js. React Three Fiber, TypeScript, and Vite need confirmation. |
 | API access in development | A Vite proxy, or a CORS origin in `kubernetes/base/kustomization.yaml`. |
