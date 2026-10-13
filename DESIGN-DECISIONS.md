@@ -9,8 +9,10 @@ No frontend code exists.
 
 | Item | Decision |
 |---|---|
+| Visual direction | Direction A, planetarium: the sky fills the screen, and opaque panels with hairline borders sit on it. |
 | Theme | Dark only. The night sky sets the base of the interface. |
 | Sky view | The interface shows a star field on a dome. Observations, results, and tests show as overlays on the sky. |
+| Sky frame | A sky sphere in equatorial coordinates with no observing site and no horizon. The camera is at the center. Every target is visible. |
 | Shape | Sharp corners on all panels, controls, and markers that have a box shape. |
 | Density | A precise and dense layout. |
 | Character | Technical and restrained. The interface must not look like a generic web application template. |
@@ -26,6 +28,15 @@ The first vertical starts with target inspection for these reasons:
 - It sets the visual difference between observations and predictions before other screens depend on it.
 - The run and survey workflows use the same components with more records.
 
+## Review environment
+
+| Item | Value |
+|---|---|
+| Computer | The workstation that runs the k3s node, at 10.0.0.47 on the LAN. |
+| Browser | Chromium. |
+| Graphics card | NVIDIA GeForce RTX 3080, 10 GiB. |
+| Screen | No fixed resolution. The layout fits the browser window. |
+
 ## Requirements from DESIGN.md
 
 - Observations and predictions look different. Uncertainty stays visible.
@@ -37,10 +48,8 @@ The first vertical starts with target inspection for these reasons:
 
 | Item | Required decision |
 |---|---|
-| Visual direction | A choice between the planetarium, red-light control room, and star atlas mockups, or a mix of their parts. |
-| Review hardware | Computer, graphics card, browser, screen size, resolution, and number of monitors. |
+| Layout | Edge panels, sky over workbench, or sky with an evidence column. |
 | Performance targets | Load time, frame rate, interaction latency, and browser memory. |
 | Tools | DESIGN.md requires React and Three.js. React Three Fiber, TypeScript, and Vite need confirmation. |
 | API access in development | A Vite proxy, or a CORS origin in `kubernetes/base/kustomization.yaml`. |
-| Dome site and time | A fixed observer site and time, the current time, or a celestial sphere with no site. |
 | Star catalog | The source and magnitude limit of the background stars. |
