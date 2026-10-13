@@ -13,6 +13,7 @@ No frontend code exists.
 | Theme | Dark only. The night sky sets the base of the interface. |
 | Sky view | The interface shows a star field on a dome. Observations, results, and tests show as overlays on the sky. |
 | Sky frame | A sky sphere in equatorial coordinates with no observing site and no horizon. The camera is at the center. Every target is visible. |
+| Layout | L2, sky over workbench. The sky fills the top part, with the catalogue on it. The workbench below holds a full-width light curve, the periodogram, the phase fold, and the inspector. A movable rule sets the space between the two parts. |
 | Shape | Sharp corners on all panels, controls, and markers that have a box shape. |
 | Density | A precise and dense layout. |
 | Character | Technical and restrained. The interface must not look like a generic web application template. |
@@ -48,7 +49,7 @@ The first vertical starts with target inspection for these reasons:
 
 | Item | Required decision |
 |---|---|
-| Layout | Edge panels, sky over workbench, or sky with an evidence column. |
+| Interaction model | Sky navigation, selection, links between plots, search, and keyboard use. |
 | Performance targets | Load time, frame rate, interaction latency, and browser memory. |
 | Tools | DESIGN.md requires React and Three.js. React Three Fiber, TypeScript, and Vite need confirmation. |
 | API access in development | A Vite proxy, or a CORS origin in `kubernetes/base/kustomization.yaml`. |
