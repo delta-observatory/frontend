@@ -23,6 +23,8 @@ No frontend code exists.
 | Light curve | A drag selects a time range. The phase fold then uses only that range. The pointer time shows as a line in the fold. **Esc** clears the range. |
 | Display fold | A click on a periodogram peak folds the data at that period. The fold title says "not a stored result", and the box model is hidden. **Esc** returns to the stored result. |
 | Keys | **/** search, **j** and **k** next and previous, **F** fly to target, **Esc** clear, **+** and **−** zoom. |
+| Tools | React, Three.js through React Three Fiber, TypeScript, and Vite. The sky, the targets, and the plots render with WebGL. Tables, the inspector, and forms are React. |
+| API access | In development, a Vite proxy sends `/api` to `http://10.0.0.47:30870`. The deployed build uses NodePort 30871 and its own proxy to the API service. CORS stays disabled. |
 | Shape | Sharp corners on all panels, controls, and markers that have a box shape. |
 | Density | A precise and dense layout. |
 | Character | Technical and restrained. The interface must not look like a generic web application template. |
@@ -37,6 +39,22 @@ The first vertical starts with target inspection for these reasons:
 - It needs every element that later screens reuse: plots, measurement tables, units, uncertainty, flags, and the scientific status.
 - It sets the visual difference between observations and predictions before other screens depend on it.
 - The run and survey workflows use the same components with more records.
+
+## Performance targets
+
+The targets apply to the review environment below, at any window size.
+
+| Measure | Target |
+|---|---|
+| First load to a usable sky and catalogue, empty cache | ≤ 1.5 s |
+| Target change to visible plots, first load of the target | ≤ 400 ms |
+| Target change to visible plots, target already loaded | ≤ 100 ms |
+| Sky turn, zoom, and fly | 60 frames per second. The 95th percentile frame time is ≤ 16.7 ms. |
+| Hover, time range, and display fold, from input to screen | ≤ 50 ms at the 95th percentile |
+| Browser memory after all 46 targets are open | ≤ 500 MB |
+
+An in-app performance display shows these measures.
+A binary artifact format is a possible fix if the JSON artifacts miss the 400 ms target. That change needs a new contract version in `database/contracts/` and a review with Richard.
 
 ## Review environment
 
@@ -58,7 +76,4 @@ The first vertical starts with target inspection for these reasons:
 
 | Item | Required decision |
 |---|---|
-| Performance targets | Load time, frame rate, interaction latency, and browser memory. |
-| Tools | DESIGN.md requires React and Three.js. React Three Fiber, TypeScript, and Vite need confirmation. |
-| API access in development | A Vite proxy, or a CORS origin in `kubernetes/base/kustomization.yaml`. |
 | Star catalog | The source and magnitude limit of the background stars. |
