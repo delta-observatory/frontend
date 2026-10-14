@@ -49,6 +49,13 @@ Chromium started with `--disable-gpu` has no WebGL.
 `.npmrc` sets exact versions. npm 10.9.8 fails to add `vitest` with the error `Cannot read properties of null (reading 'edgesOut')`.
 To add or change `vitest`, run `npm install -D vitest@<version> --legacy-peer-deps`. `npm ci` works without the flag.
 
+## Image and deployment
+
+The `Dockerfile` builds the app with Node 22 and serves `dist/` with unprivileged nginx on port 8080.
+`deploy/nginx.conf` sends `/api/` to the `delta-api` Service and answers `/healthz`.
+`kubernetes/scripts/build.sh frontend` builds the image in the cluster. [kubernetes/README.md](../kubernetes/README.md) describes the release.
+The deployed app is at `http://10.0.0.47:30871/` on the LAN.
+
 ## API use
 
 The frontend reads only these endpoints:
