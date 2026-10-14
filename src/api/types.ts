@@ -38,6 +38,36 @@ export interface Observation {
 
 export interface ObservationDetail extends Observation {
   header: Record<string, unknown>;
+  artifacts: Artifact[];
+}
+
+export interface Artifact {
+  id: string;
+  job_id: string;
+  observation_id: string | null;
+  kind: string;
+  media_type: string;
+  content_encoding: string;
+  bytes: number;
+  sha256: string;
+  content_url: string;
+}
+
+/** Column artifact, contract columns/1 in database/contracts/artifacts/columns/v1.schema.json. */
+export interface ColumnArtifact {
+  format: "columns/1";
+  length: number;
+  description?: string;
+  columns: { name: string; unit: string; dtype: "float64" | "int64" | "bool"; time_scale?: string; time_reference?: string; values: (number | boolean | null)[] }[];
+}
+
+export interface MethodInfo {
+  id: string;
+  version: number;
+  summary: string;
+  scientific_status: string;
+  known_deviation?: string;
+  scientific_basis: string;
 }
 
 export interface RunSummary {
@@ -69,7 +99,12 @@ export interface JobResult {
   observation_id: string;
   state: string;
   outcome: string | null;
+  error: unknown;
   measurements: Partial<Record<Measurement["role"], Measurement[]>>;
+  artifacts: Artifact[];
+  diagnostics: Record<string, unknown> | null;
+  software: { python?: string; packages?: Record<string, string>; worker_version?: string } | null;
+  resources: { peak_rss_mib?: number; elapsed_seconds?: number } | null;
 }
 
 export interface RunResults { run_id: string; jobs: JobResult[] }

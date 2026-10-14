@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { Catalogue } from "./Catalogue";
-import { loadCatalogue, type Catalogue as CatalogueData, type Target } from "./data/catalogue";
+import { loadCatalogue, type Catalogue as CatalogueData } from "./data/catalogue";
+import { loadEvidence, type Evidence } from "./data/evidence";
+import { Inspector } from "./Inspector";
+import { Fold } from "./plots/Fold";
+import { LightCurve } from "./plots/LightCurve";
+import { Periodogram } from "./plots/Periodogram";
 import { parseSearch, type ClassFilter } from "./data/search";
 import { motion, useMotion } from "./motion";
 import { marks } from "./perf/frames";
@@ -19,8 +24,6 @@ async function getStatic<T>(path: string): Promise<T> {
   return (await res.json()) as T;
 }
 
-const CLASS = { planet_host: "planet host", no_known_planet: "no known planet", eclipsing_binary: "eclipsing binary" };
-
 export function App() {
   const [data, setData] = useState<CatalogueData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -31,6 +34,14 @@ export function App() {
   const [query, setQuery] = useState("");
   const [cls, setCls] = useState<ClassFilter>("all");
   const [firstSky, setFirstSky] = useState<number | null>(null);
+  const [evidence, setEvidence] = useState<Evidence | null>(null);
+  const [evError, setEvError] = useState<string | null>(null);
+  const [brush, setBrush] = useState<[number, number] | null>(null);
+  const [cursorT, setCursorT] = useState<number | null>(null);
+  const [cursorP, setCursorP] = useState<number | null>(null);
+  const [foldP, setFoldP] = useState<number | null>(null);
+  const [changeMs, setChangeMs] = useState<number | null>(null);
+  const changeStart = useRef<number | null>(null);
   const mode = useMotion();
   const skyCell = useRef<HTMLDivElement>(null);
   const searchInput = useRef<HTMLInputElement>(null);
@@ -54,13 +65,32 @@ export function App() {
 
   const select = (id: string) => {
     const t = targets.find((x) => x.id === id);
+    if (id !== selected) { changeStart.current = performance.now(); setBrush(null); setFoldP(null); setCursorT(null); }
     setSelected(id);
     if (t?.v) camera.flyTo(t.v, motion.get() === "animated");
   };
 
+  // Loads the result artifacts of the selected target. A newer selection replaces an older load.
+  useEffect(() => {
+    if (!selected || !data) { setEvidence(null); return; }
+    let live = true;
+    setEvError(null);
+    loadEvidence(selected, data).then((ev) => { if (live) setEvidence(ev); }, (e: Error) => { if (live) { setEvidence(null); setEvError(e.message); } });
+    return () => { live = false; };
+  }, [selected, data]);
+
+  // Time from a target change to the first frame with its plots.
+  useEffect(() => {
+    if (!evidence || changeStart.current == null) return;
+    const t0 = changeStart.current;
+    requestAnimationFrame(() => requestAnimationFrame(() => { setChangeMs(performance.now() - t0); changeStart.current = null; }));
+  }, [evidence]);
+  const shown = evidence && evidence.observation.id === selected ? evidence : null;
+
   // Keys: / search, j and k next and previous, f turn to the selection, + and − zoom.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !(e.target instanceof HTMLInputElement)) { setBrush(null); setFoldP(null); return; }
       if (e.target instanceof HTMLInputElement) {
         if (e.key === "Escape" || e.key === "Enter") e.target.blur();
         return;
@@ -114,27 +144,21 @@ export function App() {
         {error && <div className="error">API error. {error}</div>}
       </div>
       <div className="rule" onPointerDown={onRule} title="Drag to resize" />
-      <div className="bench"><div className="empty">{current ? "The workbench plots are not implemented." : "No target selected."}</div></div>
+      <div className="bench">
+        {shown ? (
+          <>
+            <LightCurve ev={shown} brush={brush} cursorT={cursorT} foldP={foldP} onBrush={setBrush} onCursorT={setCursorT} />
+            <div className="bench-row">
+              <Periodogram ev={shown} foldP={foldP} cursorP={cursorP} onFoldP={setFoldP} onCursorP={setCursorP} />
+              <Fold ev={shown} brush={brush} cursorT={cursorT} foldP={foldP} />
+            </div>
+          </>
+        ) : <div className="empty">{evError ?? (current ? "Loading the result artifacts…" : "No target selected.")}</div>}
+      </div>
       <section className="panel inspector">
         <header>{current ? <span className="id"><b>{current.name ?? current.tic}</b> · {current.tic} · S{String(current.sector).padStart(2, "0")}</span> : <span>Inspector</span>}</header>
-        {current ? <Summary t={current} /> : <div className="empty">No target selected.</div>}
+        {current ? <Inspector target={current} ev={shown} method={data?.method ?? null} run={data?.run ?? null} loading={!shown && !evError} error={evError} changeMs={changeMs} /> : <div className="empty">No target selected.</div>}
       </section>
-    </div>
-  );
-}
-
-/** Catalogue values of the selected target. */
-function Summary({ t }: { t: Target }) {
-  const f = (x: number | null, d: number) => (x == null ? "—" : x.toFixed(d));
-  return (
-    <div className="kv">
-      <span>label</span><span>{CLASS[t.cls]}{t.name ? ` · ${t.name}` : ""}</span>
-      <span>RA, Dec (deg)</span><span>{f(t.ra, 5)}, {f(t.dec, 5)}</span>
-      <span>T mag</span><span>{f(t.tmag, 3)}</span>
-      <span>P bls (d)</span><span>{f(t.period, 6)}</span>
-      <span>depth S/N</span><span>{f(t.snr, 1)}</span>
-      <span>P ref (d)</span><span>{f(t.refPeriod, 6)}</span>
-      <span>|ΔP/P|</span><span>{t.relErr == null ? "—" : t.relErr.toExponential(2)}</span>
     </div>
   );
 }

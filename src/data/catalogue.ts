@@ -1,5 +1,5 @@
 import { getJson, pool } from "../api/client";
-import type { Dataset, Health, Observation, ObservationDetail, Page, RunResults, RunSummary, TargetClass } from "../api/types";
+import type { Dataset, Health, JobResult, MethodInfo, Observation, ObservationDetail, Page, RunResults, RunSummary, TargetClass } from "../api/types";
 import { eqToVec, type Vec3 } from "../sky/math";
 
 /** One observation with its sky position and its result in the selected run. */
@@ -24,7 +24,11 @@ export interface Catalogue {
   health: Health;
   dataset: Dataset | null;
   run: RunSummary | null;
+  method: MethodInfo | null;
   targets: Target[];
+  /** Observation detail and run job for each observation ID. The evidence loader uses them. */
+  observations: Map<string, ObservationDetail>;
+  jobs: Map<string, JobResult>;
   loadMs: number;
 }
 
@@ -49,11 +53,12 @@ export async function loadCatalogue(): Promise<Catalogue> {
   ]);
   // The list response has no sky position. Each detail response has RA_OBJ and DEC_OBJ in its header.
   const run = runs.find((r) => r.method_id === "tess-bls" && (r.job_states.complete ?? 0) > 0) ?? null;
-  const [details, results] = await Promise.all([
+  const [details, results, method] = await Promise.all([
     pool(observations, 8, (o) => getJson<ObservationDetail>(`/observations/${o.id}`)),
     run ? getJson<RunResults>(`/runs/${run.id}/results`) : Promise.resolve<RunResults | null>(null),
+    run ? getJson<MethodInfo>(`/methods/${run.method_id}/${run.method_version}`) : Promise.resolve<MethodInfo | null>(null),
   ]);
-  const byObservation = new Map(results?.jobs.map((j) => [j.observation_id, j]));
+  const byObservation = new Map((results?.jobs ?? []).map((j) => [j.observation_id, j]));
   const targets = details.map((d): Target => {
     const ra = num(d.header.RA_OBJ), dec = num(d.header.DEC_OBJ), planet = d.labels.planets?.[0] ?? null;
     const job = byObservation.get(d.id);
@@ -64,7 +69,10 @@ export async function loadCatalogue(): Promise<Catalogue> {
       period: m("search", "period"), depth: m("search", "depth"), snr: m("search", "depth_snr"), relErr: m("reference_comparison", "relative_period_error"),
     };
   });
-  return { health, dataset: datasets.find((d) => d.id === observations[0]?.dataset_id) ?? datasets[0] ?? null, run, targets, loadMs: performance.now() - t0 };
+  return {
+    health, dataset: datasets.find((d) => d.id === observations[0]?.dataset_id) ?? datasets[0] ?? null, run, method, targets,
+    observations: new Map(details.map((d) => [d.id, d])), jobs: byObservation, loadMs: performance.now() - t0,
+  };
 }
 
 /** Display bins for the marker colour. They are not a validation criterion. */
