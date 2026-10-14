@@ -105,3 +105,63 @@ td.unit { color: var(--dim); }
 td.na { color: var(--dim); cursor: help; }
 .flag { display: inline-block; border: 1px solid var(--flag); color: var(--flag); padding: 0 4px; font-size: 9.5px; letter-spacing: .03em; margin-right: 3px; cursor: help; }
 .error-inline { border: 1px solid var(--st-miss); color: var(--st-miss); padding: 5px 7px; font: 10.5px var(--mono); }
+
+/* Compact layout: phones and narrow windows. The sky stays on top. Tabs hold the catalogue, each plot, and the details. */
+.hidden { display: none !important; }
+.app.compact {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: calc(40px + env(safe-area-inset-top)) minmax(140px, var(--sky-h-compact, 40svh)) 6px 44px 40px minmax(0, 1fr);
+  column-gap: 0; row-gap: 0;
+}
+.compact .bar { gap: 14px; padding: env(safe-area-inset-top) 12px 0; font-size: 12px; }
+.compact .bar .brand { font-size: 11px; letter-spacing: .2em; }
+.compact .bar .toggle { margin-left: auto; padding: 5px 10px; font-size: 11px; }
+.compact .sky-hud { left: 10px; top: 8px; }
+.compact .hud-extra { display: none; }
+.compact .allsky { width: min(38vw, 200px); right: 8px; bottom: 8px; }
+.compact .sel-label b { font-size: 12px; }
+.compact .rule { background: #0b1018; border: 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); position: relative; touch-action: none; }
+.compact .rule::after { content: ""; position: absolute; left: 50%; top: 1px; width: 36px; height: 2px; margin-left: -18px; background: #3a4758; }
+.selbar { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: stretch; background: #000; border-bottom: 1px solid var(--rule); }
+.selbar button { background: none; border: 0; color: var(--text); font: 300 26px/1 var(--sans); cursor: pointer; }
+.selbar button:active { background: var(--sel-bg); }
+.selbar > span { align-self: center; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font: 10.5px var(--mono); color: var(--dim); }
+.selbar > span b { font: 500 14px var(--sans); color: var(--text-strong); margin-right: 8px; }
+.selbar > span.none { font-family: var(--sans); font-size: 12px; }
+.mtabs { display: flex; background: #000; border-bottom: 1px solid var(--rule); overflow-x: auto; scrollbar-width: none; }
+.mtabs button { flex: 1 1 auto; background: none; border: 0; border-right: 1px solid var(--rule); color: var(--dim); font: 500 11px var(--sans); letter-spacing: .04em; text-transform: uppercase; padding: 0 6px; cursor: pointer; white-space: nowrap; }
+.mtabs button:last-child { border-right: 0; }
+.mtabs button.on { color: var(--text-strong); box-shadow: inset 0 -2px 0 var(--text-strong); background: #05080d; }
+.pane { position: relative; min-height: 0; background: #04060b; padding-bottom: env(safe-area-inset-bottom); }
+.pane-fill { position: absolute; inset: 0; display: flex; flex-direction: column; min-height: 0; }
+.pane-fill > .plot { flex: 1; }
+.bench-one > .pane-fill > .plot, .bench-one .pane-fill { transition: opacity .15s ease-out; }
+.bench-one.stale > .pane-fill { opacity: .35; transition: none; }
+.compact .catalogue { position: static; width: 100%; height: 100%; border: 0; }
+.compact .catalogue td, .compact .catalogue th { padding-top: 6px; padding-bottom: 6px; }
+.compact .catalogue td { font-size: 12px; }
+.compact .filter { padding: 8px; }
+.compact .filter input { font-size: 14px; padding: 6px 8px; }
+.compact .filter button { padding: 4px 9px; font-size: 12px; }
+.compact .details > .scroll, .compact .details { overflow: auto; }
+.compact .details .ibody { padding: 10px 12px; }
+.compact .details .kv, .compact .details td { font-size: 12px; }
+.compact .bench-status { top: 44px; max-width: calc(100% - 20px); overflow: hidden; text-overflow: ellipsis; }
+.chips { position: absolute; right: 14px; top: 46px; display: flex; gap: 8px; pointer-events: none; }
+.chips button { pointer-events: auto; background: rgba(0,0,0,.85); border: 1px solid #4a586b; color: var(--text-strong); font: 500 12px var(--sans); padding: 7px 12px; cursor: pointer; }
+.compact .empty { padding: 16px; font-size: 12px; }
+
+/* Phone in landscape: sky on the left, the tabs and panes on the right. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .app.compact {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: calc(36px + env(safe-area-inset-top)) 40px 36px minmax(0, 1fr);
+  }
+  .compact .bar { grid-column: 1 / -1; }
+  .compact .sky-cell { grid-column: 1; grid-row: 2 / 5; }
+  .compact .rule { display: none; }
+  .compact .selbar { grid-column: 2; grid-row: 2; }
+  .compact .mtabs { grid-column: 2; grid-row: 3; }
+  .compact .pane { grid-column: 2; grid-row: 4; padding-right: env(safe-area-inset-right); }
+  .compact .sky-cell { padding-left: env(safe-area-inset-left); }
+}

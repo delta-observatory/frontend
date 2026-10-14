@@ -34,9 +34,9 @@ export function Fold({ ev, brush, cursorT, foldP }: Props) {
     if (!surface) return;
     surface.setFrame(frame);
     surface.setRange(null);
-    const mp = surface.map(), { w, h, m } = mp;
+    const mp = surface.map(), { w, h, m } = mp, narrow = w < 640;
     drawAxes(surface.ctx("under"), mp, frame, {
-      title: display ? `DISPLAY FOLD · P ${P.toFixed(6)} d · not a stored result · Esc resets` : `PHASE FOLD · BLS P ${P.toFixed(6)} d · stored result`,
+      title: display ? (narrow ? `DISPLAY FOLD · P ${P.toFixed(5)} d · not stored` : `DISPLAY FOLD · P ${P.toFixed(6)} d · not a stored result · Esc resets`) : (narrow ? `FOLD · BLS P ${P.toFixed(5)} d · stored` : `PHASE FOLD · BLS P ${P.toFixed(6)} d · stored result`),
       titleColor: display ? colors.textStrong : colors.text, xlabel: "time from BLS mid-transit  h", ylabel: "flattened flux  1", fy: (v) => v.toFixed(4),
     });
     surface.render();
@@ -56,10 +56,10 @@ export function Fold({ ev, brush, cursorT, foldP }: Props) {
     }
     ctx.restore();
     drawLegend(ctx, [
-      { label: "observed", color: colors.obs, kind: "dot" }, { label: `${(binH * 60).toFixed(0)}-min mean ± s.e.`, color: colors.textStrong, kind: "tick" },
-      ...(display ? [] : [{ label: "box model (BLS)", color: colors.model, dash: [6, 3] }]),
+      { label: narrow ? "obs." : "observed", color: colors.obs, kind: "dot" }, { label: narrow ? `${(binH * 60).toFixed(0)} min ± s.e.` : `${(binH * 60).toFixed(0)}-min mean ± s.e.`, color: colors.textStrong, kind: "tick" },
+      ...(display ? [] : [{ label: narrow ? "box model" : "box model (BLS)", color: colors.model, dash: [6, 3] }]),
     ]);
-    drawReadout(ctx, w, `${folded.n} points${brush ? " in the time selection" : ""}`);
+    drawReadout(ctx, w, narrow ? `${folded.n} pts` : `${folded.n} points${brush ? " in the time selection" : ""}`);
   }, [surface, size, frame, binned, folded, display, P, T0, win, binH, best, cursorT, brush]);
 
   return <div className="plot" ref={box} />;

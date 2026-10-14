@@ -40,9 +40,9 @@ export function Periodogram({ ev, foldP, cursorP, onFoldP, onCursorP }: Props) {
     if (!surface) return;
     surface.setFrame(frame);
     surface.setRange(null);
-    const mp = surface.map(), { w, h, m } = mp;
+    const mp = surface.map(), { w, h, m } = mp, narrow = w < 640;
     drawAxes(surface.ctx("under"), mp, frame, {
-      title: "BLS PERIODOGRAM · click a peak to fold at its period", xlabel: "trial period  d",
+      title: narrow ? "BLS PERIODOGRAM · tap a peak to fold" : "BLS PERIODOGRAM · click a peak to fold at its period", xlabel: "trial period  d",
       ylabel: objective === "likelihood" ? "power, Δ log L  1" : "power  1", fy: (v) => (v >= 1e4 ? `${(v / 1000).toFixed(0)}k` : v.toFixed(0)),
     });
     surface.render();
@@ -54,7 +54,7 @@ export function Periodogram({ ev, foldP, cursorP, onFoldP, onCursorP }: Props) {
     if (ev.planet) {
       const P = ev.planet.period_days;
       if (P <= s.grid_period_max_days) vline(P, colors.ref, [5, 3]);
-      else { ctx.fillStyle = colors.ref; ctx.textAlign = "right"; ctx.fillText(`reference P ${P.toFixed(4)} d is outside the search grid →`, w - m.r - 4, m.t + 14); }
+      else { ctx.fillStyle = colors.ref; ctx.textAlign = "right"; ctx.fillText(narrow ? `ref. P ${P.toFixed(3)} d outside grid →` : `reference P ${P.toFixed(4)} d is outside the search grid →`, w - m.r - 4, m.t + 14); }
     }
     s.peaks.forEach((pk, i) => {
       const x = mp.X(pk.period), y = mp.Y(pk.power);
@@ -66,8 +66,8 @@ export function Periodogram({ ev, foldP, cursorP, onFoldP, onCursorP }: Props) {
     if (cursorP) vline(cursorP, "rgba(255,255,255,.35)", []);
     ctx.restore();
     drawLegend(ctx, [
-      { label: "BLS power", color: "#b9c3cf" }, { label: "stored peaks 1–5", color: colors.model, kind: "dot" },
-      ...(ev.planet ? [{ label: "reference P", color: colors.ref, dash: [5, 3] }] : []), { label: "P/2, 2P, 3P", color: "#3d4a5c", dash: [2, 3] },
+      { label: narrow ? "power" : "BLS power", color: "#b9c3cf" }, { label: narrow ? "peaks" : "stored peaks 1–5", color: colors.model, kind: "dot" },
+      ...(ev.planet ? [{ label: narrow ? "ref. P" : "reference P", color: colors.ref, dash: [5, 3] }] : []), { label: narrow ? "aliases" : "P/2, 2P, 3P", color: "#3d4a5c", dash: [2, 3] },
     ]);
     if (cursorP) { const i = nearest(data.period, cursorP); drawReadout(ctx, w, `P ${data.period[i]!.toFixed(5)} d   power ${data.power[i]!.toFixed(1)}`); }
   }, [surface, size, ev, frame, foldP, cursorP, data, s, best, objective]);
@@ -80,7 +80,7 @@ export function Periodogram({ ev, foldP, cursorP, onFoldP, onCursorP }: Props) {
     <div
       className="plot" ref={box}
       onPointerMove={(e) => { if (surface) { const q = at(e.clientX, e.clientY); onCursorP(q.inside ? q.p : null); } }}
-      onPointerLeave={() => onCursorP(null)}
+      onPointerLeave={(e) => { if (e.pointerType !== "touch") onCursorP(null); }}
       onClick={(e) => {
         if (!surface) return;
         const q = at(e.clientX, e.clientY);

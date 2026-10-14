@@ -90,8 +90,9 @@ export function AllSky({ targets, stars, selected, matches, sky }: Props) {
       marker(ctx, t.cls, p[0], p[1], sel ? 4 : 2.5);
     }
     ctx.globalAlpha = 1;
-    ctx.fillStyle = colors.dim; ctx.font = "10px 'IBM Plex Mono'"; ctx.textAlign = "left"; ctx.fillText("ALL SKY · click to turn the view", 6, 12);
-    ctx.textAlign = "right"; ctx.fillText(`${matches.size} / ${targets.length} shown`, w - 6, 12);
+    ctx.fillStyle = colors.dim; ctx.font = "10px 'IBM Plex Mono'"; ctx.textAlign = "left";
+    ctx.fillText(w < 280 ? "ALL SKY" : "ALL SKY · click to turn the view", 6, 12);
+    ctx.textAlign = "right"; ctx.fillText(w < 280 ? `${matches.size}/${targets.length}` : `${matches.size} / ${targets.length} shown`, w - 6, 12);
   }, [basis, fov, targets, stars, selected, matches, sky]);
 
   const onClick = (e: MouseEvent<HTMLCanvasElement>) => {

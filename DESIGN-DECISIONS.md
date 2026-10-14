@@ -14,6 +14,8 @@ Richard directs the visual style and the interaction design.
 | Sky view | The interface shows a star field on a dome. Observations, results, and tests show as overlays on the sky. |
 | Sky frame | A sky sphere in equatorial coordinates with no observing site and no horizon. The camera is at the center. Every target is visible. |
 | Layout | L2, sky over workbench. The sky fills the top part, with the catalogue on it. The workbench below holds a full-width light curve, the periodogram, the phase fold, and the inspector. A movable rule sets the space between the two parts. |
+| Compact layout | Phones and windows narrower than 760 px, and phones in landscape. The sky stays on top, with the all-sky map. A strip shows the selection with previous and next buttons. Tabs hold Targets, Curve, Periodogram, Fold, and Details. Each plot uses the full width. In landscape, the sky is on the left and the tabs are on the right. |
+| Touch | One finger turns the sky. Two fingers zoom. A tap selects a target. A drag on the light curve selects a time range, and a tap on a periodogram peak sets a display period. Buttons clear the time range and return to the stored fold. A row tap in Targets opens the Curve tab. |
 | Selection | A click on a sky marker or a catalogue row selects the target. The sky turns to the target in 0.3–0.9 s. **j** and **k** select the next and previous target in the filtered list. |
 | Navigation | North up. A drag turns the sky, and the wheel zooms. **F** turns the sky to the selected target. |
 | Motion | Animated by default. A reduced-motion setting removes camera animation. |

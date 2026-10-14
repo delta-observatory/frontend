@@ -3,6 +3,7 @@ import { Catalogue } from "./Catalogue";
 import { loadCatalogue, type Catalogue as CatalogueData } from "./data/catalogue";
 import { loadEvidence, prefetchEvidence, type Evidence } from "./data/evidence";
 import { Inspector } from "./Inspector";
+import { useCompact } from "./layout";
 import { Fold } from "./plots/Fold";
 import { LightCurve } from "./plots/LightCurve";
 import { Periodogram } from "./plots/Periodogram";
@@ -23,6 +24,9 @@ async function getStatic<T>(path: string): Promise<T> {
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}: GET ${path}`);
   return (await res.json()) as T;
 }
+
+type Tab = "targets" | "light" | "pgram" | "fold" | "details";
+const TABS: [Tab, string][] = [["targets", "Targets"], ["light", "Curve"], ["pgram", "Periodogram"], ["fold", "Fold"], ["details", "Details"]];
 
 export function App() {
   const [data, setData] = useState<CatalogueData | null>(null);
@@ -45,6 +49,8 @@ export function App() {
   const mode = useMotion();
   const skyCell = useRef<HTMLDivElement>(null);
   const searchInput = useRef<HTMLInputElement>(null);
+  const compact = useCompact();
+  const [tab, setTab] = useState<Tab>("targets");
 
   useEffect(() => {
     loadCatalogue().then(setData, (e: Error) => setError(e.message));
@@ -112,10 +118,9 @@ export function App() {
         return;
       }
       if (e.ctrlKey || e.metaKey || e.altKey) return;
-      const i = rows.findIndex((t) => t.id === selected);
       if (e.key === "/") { e.preventDefault(); searchInput.current?.focus(); }
-      else if (e.key === "j" && rows.length) select((rows[i + 1] ?? rows[0])!.id);
-      else if (e.key === "k" && rows.length) select((i > 0 ? rows[i - 1] : rows[rows.length - 1])!.id);
+      else if (e.key === "j") step(1);
+      else if (e.key === "k") step(-1);
       else if (e.key === "f" && current?.v) camera.flyTo(current.v, motion.get() === "animated");
       else if (e.key === "+" || e.key === "=") camera.zoomBy(1 / 1.25);
       else if (e.key === "-") camera.zoomBy(1.25);
@@ -124,16 +129,92 @@ export function App() {
     return () => removeEventListener("keydown", onKey);
   });
 
+  const step = (d: 1 | -1) => {
+    if (!rows.length) return;
+    const i = rows.findIndex((t) => t.id === selected);
+    select((d > 0 ? rows[i + 1] ?? rows[0] : i > 0 ? rows[i - 1] : rows[rows.length - 1])!.id);
+  };
+
   const onRule = (e: ReactPointerEvent<HTMLDivElement>) => {
     const el = e.currentTarget;
     el.setPointerCapture(e.pointerId);
-    const move = (ev: PointerEvent) => document.documentElement.style.setProperty("--sky-h", `${Math.min(Math.max(ev.clientY - 31, 160), innerHeight - 220)}px`);
+    const top = el.parentElement!.getBoundingClientRect().top + (compact ? 40 : 31);
+    const move = (ev: PointerEvent) => document.documentElement.style.setProperty(compact ? "--sky-h-compact" : "--sky-h", `${Math.min(Math.max(ev.clientY - top, 140), innerHeight - 220)}px`);
     const up = () => { el.removeEventListener("pointermove", move); el.removeEventListener("pointerup", up); };
     el.addEventListener("pointermove", move);
     el.addEventListener("pointerup", up);
   };
 
   const run = data?.run;
+  const sky = WEBGL.ok ? (
+    <SkyBoundary>
+      <SkyView targets={targets} stars={stars} lines={lines} hover={hover} selected={selected} matches={matches} onHover={setHover} onSelect={select} />
+    </SkyBoundary>
+  ) : <SkyUnavailable reason={WEBGL.reason} />;
+  const catalogue = data && (
+    <Catalogue rows={rows} total={targets.length} hover={hover} selected={selected} query={query} cls={cls} errors={search.errors} input={searchInput}
+      onHover={setHover} onSelect={(id) => { select(id); if (compact) setTab("light"); }} onQuery={setQuery} onClass={setCls} />
+  );
+  const status = evidence && !fresh && current && (
+    <div className="bench-status">
+      {evError ? <span className="bad">{current.name ?? current.tic}: {evError}</span> : <>Loading <b>{current.name ?? current.tic}</b></>}
+      {" · showing "}{shownTarget?.name ?? shownTarget?.tic}
+    </div>
+  );
+  const inspector = current
+    ? <Inspector target={current} observation={data?.observations.get(current.id) ?? null} ev={fresh} method={data?.method ?? null} run={data?.run ?? null} loading={!fresh && !evError} error={evError} changeMs={changeMs} />
+    : <div className="empty">No target selected.</div>;
+  const motionButton = <button className="seg toggle" onClick={() => motion.set(mode === "animated" ? "reduced" : "animated")} title="Reduced motion removes camera animation">motion <b>{mode}</b></button>;
+
+  if (compact) {
+    const plotTab = tab === "light" || tab === "pgram" || tab === "fold";
+    return (
+      <div className="app compact">
+        <div className="bar">
+          <span className="brand">DELTA OBSERVATORY</span>
+          <span className="seg">api <b className={data ? "ok" : error ? "bad" : ""}>{data ? data.health.status : error ? "error" : "…"}</b></span>
+          {motionButton}
+        </div>
+        <div className="sky-cell" ref={skyCell}>
+          {sky}
+          <AllSky targets={targets} stars={stars} selected={selected} matches={matches} sky={skyCell} />
+          {error && <div className="error">API error. {error}</div>}
+        </div>
+        <div className="rule" onPointerDown={onRule} />
+        <div className="selbar">
+          <button onClick={() => step(-1)} aria-label="Previous target">‹</button>
+          {current
+            ? <span className="id" onClick={() => current.v && camera.flyTo(current.v, motion.get() === "animated")}><b>{current.name ?? current.tic}</b> {current.tic} · S{String(current.sector).padStart(2, "0")}</span>
+            : <span className="none">No target selected · {rows.length} shown</span>}
+          <button onClick={() => step(1)} aria-label="Next target">›</button>
+        </div>
+        <nav className="mtabs">
+          {TABS.map(([k, label]) => <button key={k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}>{label}</button>)}
+        </nav>
+        <div className="pane">
+          <div className={tab === "targets" ? "pane-fill" : "hidden"}>{catalogue}</div>
+          <div className={plotTab ? `pane-fill bench-one${evidence && !fresh ? " stale" : ""}` : "hidden"}>
+            {evidence ? (
+              <>
+                <div className={tab === "light" ? "pane-fill" : "hidden"}><LightCurve ev={evidence} brush={brush} cursorT={cursorT} foldP={foldP} onBrush={setBrush} onCursorT={setCursorT} /></div>
+                <div className={tab === "pgram" ? "pane-fill" : "hidden"}><Periodogram ev={evidence} foldP={foldP} cursorP={cursorP} onFoldP={setFoldP} onCursorP={setCursorP} /></div>
+                <div className={tab === "fold" ? "pane-fill" : "hidden"}><Fold ev={evidence} brush={brush} cursorT={cursorT} foldP={foldP} /></div>
+                {status}
+                {(brush || foldP) && (
+                  <div className="chips">
+                    {brush && <button onClick={() => setBrush(null)}>Clear time range</button>}
+                    {foldP && <button onClick={() => setFoldP(null)}>Stored fold</button>}
+                  </div>
+                )}
+              </>
+            ) : <div className="empty">{evError ?? (current ? "Loading the result artifacts…" : "Select a target in Targets or on the sky.")}</div>}
+          </div>
+          <div className={tab === "details" ? "pane-fill details" : "hidden"}>{inspector}</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="app">
       <div className="bar">
@@ -142,19 +223,12 @@ export function App() {
         <span className="seg">run <b>{run ? run.id.slice(0, 8) : "—"}</b> · {run ? `${run.method_id} v${run.method_version}` : "no tess-bls run"} · <b>{run ? `${run.job_states.complete ?? 0}/${run.input_count}` : "—"}</b> complete</span>
         <span className="seg">api <b className={data ? "ok" : error ? "bad" : ""}>{data ? data.health.status : error ? "error" : "…"}</b></span>
         <span className="seg perf">catalogue {data ? `${data.loadMs.toFixed(0)} ms` : "…"} · first sky {firstSky != null ? `${firstSky.toFixed(0)} ms` : "…"}</span>
-        <button className="seg toggle" onClick={() => motion.set(mode === "animated" ? "reduced" : "animated")} title="Reduced motion removes camera animation">motion <b>{mode}</b></button>
+        {motionButton}
         <span className="tabs"><span className="on">SKY</span><span>DATASETS</span><span>ANALYSIS</span><span>EVIDENCE</span></span>
       </div>
       <div className="sky-cell" ref={skyCell}>
-        {WEBGL.ok ? (
-          <SkyBoundary>
-            <SkyView targets={targets} stars={stars} lines={lines} hover={hover} selected={selected} matches={matches} onHover={setHover} onSelect={select} />
-          </SkyBoundary>
-        ) : <SkyUnavailable reason={WEBGL.reason} />}
-        {data && (
-          <Catalogue rows={rows} total={targets.length} hover={hover} selected={selected} query={query} cls={cls} errors={search.errors} input={searchInput}
-            onHover={setHover} onSelect={select} onQuery={setQuery} onClass={setCls} />
-        )}
+        {sky}
+        {catalogue}
         <AllSky targets={targets} stars={stars} selected={selected} matches={matches} sky={skyCell} />
         <div className="hud keys"><b>drag</b> turn · <b>wheel</b> zoom · <b>click</b> select · <b>/</b> search · <b>j</b> <b>k</b> next, previous · <b>f</b> turn to selection · <b>+</b> <b>−</b> zoom</div>
         {error && <div className="error">API error. {error}</div>}
@@ -168,18 +242,13 @@ export function App() {
               <Periodogram ev={evidence} foldP={foldP} cursorP={cursorP} onFoldP={setFoldP} onCursorP={setCursorP} />
               <Fold ev={evidence} brush={brush} cursorT={cursorT} foldP={foldP} />
             </div>
-            {!fresh && current && (
-              <div className="bench-status">
-                {evError ? <span className="bad">{current.name ?? current.tic}: {evError}</span> : <>Loading <b>{current.name ?? current.tic}</b></>}
-                {" · showing "}{shownTarget?.name ?? shownTarget?.tic}
-              </div>
-            )}
+            {status}
           </>
         ) : <div className="empty">{evError ?? (current ? "Loading the result artifacts…" : "No target selected.")}</div>}
       </div>
       <section className="panel inspector">
         <header>{current ? <span className="id"><b>{current.name ?? current.tic}</b> · {current.tic} · S{String(current.sector).padStart(2, "0")}</span> : <span>Inspector</span>}</header>
-        {current ? <Inspector target={current} observation={data?.observations.get(current.id) ?? null} ev={fresh} method={data?.method ?? null} run={data?.run ?? null} loading={!fresh && !evError} error={evError} changeMs={changeMs} /> : <div className="empty">No target selected.</div>}
+        {inspector}
       </section>
     </div>
   );

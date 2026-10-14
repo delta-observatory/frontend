@@ -68,9 +68,12 @@ export function SkyView({ targets, stars, lines, hover, selected, matches, onHov
     return () => el.removeEventListener("wheel", wheel);
   }, []);
 
-  const hitTest = (x: number, y: number) => {
+  // Active pointers, for a two-finger pinch zoom.
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const pinch = useRef<number | null>(null);
+  const hitTest = (x: number, y: number, radius = 10) => {
     const r = wrap.current!.getBoundingClientRect(), { basis, fov } = camera.get(), k = projectionScale(r.width, fov);
-    let best: { t: Target; x: number; y: number } | null = null, bd = 10;
+    let best: { t: Target; x: number; y: number } | null = null, bd = radius;
     for (const t of targets) {
       if (!t.v) continue;
       const p = project(t.v, basis, k);
@@ -84,32 +87,50 @@ export function SkyView({ targets, stars, lines, hover, selected, matches, onHov
   const onPointerDown = (e: ReactPointerEvent) => {
     e.currentTarget.setPointerCapture(e.pointerId);
     camera.cancel();
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.current.size === 2) {
+      const [a, b] = [...pointers.current.values()];
+      pinch.current = Math.hypot(a!.x - b!.x, a!.y - b!.y);
+      drag.current = null;
+      return;
+    }
     drag.current = { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY };
   };
   // A release within 3 px of the press is a click. A click on a marker selects its target.
   const onPointerUp = (e: ReactPointerEvent) => {
+    pointers.current.delete(e.pointerId);
+    if (pointers.current.size < 2) pinch.current = null;
     const d = drag.current;
     drag.current = null;
-    if (!d || Math.hypot(e.clientX - d.x0, e.clientY - d.y0) >= 3) return;
-    const r = wrap.current!.getBoundingClientRect(), hit = hitTest(e.clientX - r.left, e.clientY - r.top);
+    if (!d || Math.hypot(e.clientX - d.x0, e.clientY - d.y0) >= (e.pointerType === "touch" ? 8 : 3)) return;
+    const r = wrap.current!.getBoundingClientRect(), hit = hitTest(e.clientX - r.left, e.clientY - r.top, e.pointerType === "touch" ? 22 : 10);
     if (hit) onSelect(hit.t.id);
   };
   const onPointerMove = (e: ReactPointerEvent) => {
     const r = wrap.current!.getBoundingClientRect();
+    if (pointers.current.has(e.pointerId)) pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pinch.current != null && pointers.current.size === 2) {
+      const [a, b] = [...pointers.current.values()], dist = Math.hypot(a!.x - b!.x, a!.y - b!.y);
+      if (dist > 0) camera.zoomBy(pinch.current / dist);
+      pinch.current = dist;
+      return;
+    }
     if (drag.current) {
       camera.dragBy(e.clientX - drag.current.x, e.clientY - drag.current.y, r.width);
       drag.current = { ...drag.current, x: e.clientX, y: e.clientY };
       setTip(null);
       return;
     }
+    if (e.pointerType === "touch") return;
     const hit = hitTest(e.clientX - r.left, e.clientY - r.top);
     setTip(hit);
     onHover(hit ? hit.t.id : null);
   };
   const onPointerLeave = () => { setTip(null); onHover(null); };
+  const onPointerCancel = (e: ReactPointerEvent) => { pointers.current.delete(e.pointerId); pinch.current = null; drag.current = null; };
 
   return (
-    <div className="sky" ref={wrap} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerLeave={onPointerLeave} style={{ cursor: tip ? "pointer" : "grab" }}>
+    <div className="sky" ref={wrap} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerLeave={onPointerLeave} onPointerCancel={onPointerCancel} style={{ cursor: tip ? "pointer" : "grab" }}>
       <Canvas frameloop="demand" dpr={[1, 2]} flat linear gl={{ antialias: true, alpha: false }} onCreated={({ gl }) => gl.setClearColor(colors.bg)}>
         <SkySync />
         <MilkyWay />
@@ -141,10 +162,10 @@ function SkyHud() {
   const ms = (x: number | null) => (x == null ? "—" : x.toFixed(1));
   return (
     <div className="hud sky-hud">
-      FRAME equatorial ICRS · no site · north up
-      <br />VIEW RA {ra.toFixed(2)}° Dec {dec.toFixed(2)}° · FOV {fov.toFixed(0)}°
-      <br /><span style={{ color: "rgba(240,166,64,.85)" }}>– – ecliptic</span>  <span style={{ color: "rgba(197,140,255,.85)" }}>– – galactic plane</span>  Milky Way: drawn model
-      <br />frame p95 {ms(stats.intervalP95)} ms · render CPU p95 {ms(stats.renderP95)} ms
+      <span className="hud-extra">FRAME equatorial ICRS · no site · north up<br /></span>
+      VIEW RA {ra.toFixed(2)}° Dec {dec.toFixed(2)}° · FOV {fov.toFixed(0)}°
+      <span className="hud-extra"><br /><span style={{ color: "rgba(240,166,64,.85)" }}>– – ecliptic</span>  <span style={{ color: "rgba(197,140,255,.85)" }}>– – galactic plane</span>  Milky Way: drawn model
+      <br />frame p95 {ms(stats.intervalP95)} ms · render CPU p95 {ms(stats.renderP95)} ms</span>
     </div>
   );
 }

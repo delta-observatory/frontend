@@ -42,9 +42,9 @@ export function LightCurve({ ev, brush, cursorT, foldP, onBrush, onCursorT }: Pr
     if (!surface) return;
     surface.setFrame(frame);
     surface.setRange(brush);
-    const mp = surface.map(), { w, h, m } = mp;
+    const mp = surface.map(), { w, h, m } = mp, narrow = w < 640;
     drawAxes(surface.ctx("under"), mp, frame, {
-      title: `LIGHT CURVE · ${ev.checks.flux_column}, normalized by the worker · drag to select a time range`,
+      title: narrow ? "LIGHT CURVE · drag to select a time range" : `LIGHT CURVE · ${ev.checks.flux_column}, normalized by the worker · drag to select a time range`,
       xlabel: `time  ${timeLabel(tMeta?.time_reference, tMeta?.time_scale)}  d`, ylabel: "normalized flux  1", fy: (v) => v.toFixed(4),
     });
     surface.render();
@@ -75,17 +75,17 @@ export function LightCurve({ ev, brush, cursorT, foldP, onBrush, onCursorT }: Pr
     if (cursorT != null) { ctx.strokeStyle = colors.textStrong; ctx.setLineDash([2, 2]); ctx.beginPath(); ctx.moveTo(mp.X(cursorT), m.t); ctx.lineTo(mp.X(cursorT), h - m.b); ctx.stroke(); ctx.setLineDash([]); }
     ctx.restore();
     const items: LegendItem[] = [
-      { label: "observed", color: colors.obs, kind: "dot" }, { label: "trend (fit)", color: colors.model, dash: [6, 3] },
-      { label: "BLS transit times", color: colors.model, kind: "tick" },
-      ...(ev.planet ? [{ label: "reference ephemeris", color: colors.ref, kind: "tick" as const }] : []),
-      ...(foldP ? [{ label: "display period", color: colors.textStrong, kind: "tick" as const }] : []),
-      { label: `excluded rows ${ev.checks.excluded}`, color: colors.flag, kind: "tick" },
+      { label: narrow ? "obs." : "observed", color: colors.obs, kind: "dot" }, { label: narrow ? "trend" : "trend (fit)", color: colors.model, dash: [6, 3] },
+      { label: narrow ? "BLS" : "BLS transit times", color: colors.model, kind: "tick" },
+      ...(ev.planet ? [{ label: narrow ? "ref." : "reference ephemeris", color: colors.ref, kind: "tick" as const }] : []),
+      ...(foldP ? [{ label: narrow ? "display" : "display period", color: colors.textStrong, kind: "tick" as const }] : []),
+      { label: narrow ? `excl. ${ev.checks.excluded}` : `excluded rows ${ev.checks.excluded}`, color: colors.flag, kind: "tick" },
     ];
     drawLegend(ctx, items);
     if (cursorT != null) {
       const i = nearest(time, cursorT);
-      drawReadout(ctx, w, `t ${time[i]!.toFixed(5)} d   flux ${flux[i]!.toFixed(6)}   trend ${trend[i]!.toFixed(6)}`);
-    } else if (brush) drawReadout(ctx, w, `selection ${brush[0].toFixed(3)}–${brush[1].toFixed(3)} d · Esc clears`);
+      drawReadout(ctx, w, narrow ? `t ${time[i]!.toFixed(4)}  f ${flux[i]!.toFixed(5)}` : `t ${time[i]!.toFixed(5)} d   flux ${flux[i]!.toFixed(6)}   trend ${trend[i]!.toFixed(6)}`);
+    } else if (brush) drawReadout(ctx, w, narrow ? `${brush[0].toFixed(2)}–${brush[1].toFixed(2)} d` : `selection ${brush[0].toFixed(3)}–${brush[1].toFixed(3)} d · Esc clears`);
   }, [surface, size, ev, frame, brush, cursorT, foldP, time, flux, trend, best, tMeta]);
 
   const start = useRef<number | null>(null);
@@ -104,7 +104,7 @@ export function LightCurve({ ev, brush, cursorT, foldP, onBrush, onCursorT }: Pr
         if (start.current != null && Math.abs(q.px - start.current) > 3) { const t0 = Number((e.currentTarget as HTMLDivElement).dataset.t0); onBrush([Math.min(t0, q.t), Math.max(t0, q.t)]); }
       }}
       onPointerUp={() => { start.current = null; }}
-      onPointerLeave={() => onCursorT(null)}
+      onPointerLeave={(e) => { if (e.pointerType !== "touch") onCursorT(null); }}
       onDoubleClick={() => onBrush(null)}
     />
   );

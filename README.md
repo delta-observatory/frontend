@@ -6,6 +6,7 @@ The interactive frontend for Delta Observatory: React, Three.js through React Th
 ## Current scope
 
 - Layout L2 shell: top bar, sky, movable rule, workbench, and inspector.
+- Compact layout for phones and narrow windows: the sky on top, a selection strip with previous and next buttons, and tabs for Targets, Curve, Periodogram, Fold, and Details. Touch: one finger turns the sky, two fingers zoom, and a tap selects.
 - Sky sphere in the equatorial frame with no site. North stays up. A drag turns the sky, and the wheel zooms.
 - Stars to magnitude 8. Stars fainter than magnitude 6 fade in as the view zooms in.
 - Constellation lines, an equatorial grid, the ecliptic, the galactic plane, and a drawn Milky Way model.
@@ -87,6 +88,7 @@ The backend owns these responses. The measurement fields follow `database/contra
 | `src/Catalogue.tsx` | Observation table and search controls. |
 | `src/Inspector.tsx` | Measurements, checks, and provenance of the selected target. |
 | `src/motion.ts` | Motion setting. |
+| `src/layout.ts` | Choice between the full and the compact layout. |
 | `src/api/` | HTTP access and response types. |
 | `src/data/catalogue.ts` | Target list, sky positions, run measurements, and display bins. |
 | `src/data/search.ts` | Search parser. `search.test.ts` tests it. |
