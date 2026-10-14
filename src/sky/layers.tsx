@@ -1,3 +1,4 @@
+import { useThree } from "@react-three/fiber";
 import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { displayStatus, type Target } from "../data/catalogue";
@@ -118,9 +119,10 @@ export function Stars({ stars }: { stars: StarColumns }) {
 const STATUS_COLOR = { match: colors.stMatch, near: colors.stNear, miss: colors.stMiss, signal: colors.stSignal, eb: colors.stEb, quiet: colors.stQuiet };
 const SHAPE = { planet_host: 0, no_known_planet: 1, eclipsing_binary: 2 } as const;
 
-/** Target markers. State 0 is normal, 1 is dim (filtered out), 2 is hovered. */
-export function Targets({ targets, hover }: { targets: Target[]; hover: string | null }) {
+/** Target markers. State 0 is normal, 1 is dim (no search match), 2 is hovered, 3 is selected. */
+export function Targets({ targets, hover, selected, matches }: { targets: Target[]; hover: string | null; selected: string | null; matches: Set<string> }) {
   const placed = useMemo(() => targets.filter((t) => t.v), [targets]);
+  const invalidate = useThree((s) => s.invalidate);
   const { g, m } = useMemo(() => {
     const n = placed.length, pos = new Float32Array(n * 3), shape = new Float32Array(n), col = new Float32Array(n * 3);
     placed.forEach((t, i) => {
@@ -139,9 +141,10 @@ export function Targets({ targets, hover }: { targets: Target[]; hover: string |
   }, [placed]);
   useEffect(() => {
     const a = g.getAttribute("aState") as THREE.BufferAttribute;
-    placed.forEach((t, i) => a.setX(i, t.id === hover ? 2 : 0));
+    placed.forEach((t, i) => a.setX(i, t.id === selected ? 3 : t.id === hover ? 2 : matches.has(t.id) ? 0 : 1));
     a.needsUpdate = true;
-  }, [g, placed, hover]);
+    invalidate();
+  }, [g, placed, hover, selected, matches, invalidate]);
   useDispose(g, m);
   return <points geometry={g} material={m} frustumCulled={false} renderOrder={4} />;
 }

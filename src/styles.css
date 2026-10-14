@@ -31,6 +31,8 @@ body { background: var(--bg); color: var(--text); font: 12px/1.35 var(--sans); -
 .panel { background: var(--panel); border: 1px solid var(--rule); display: flex; flex-direction: column; min-height: 0; min-width: 0; }
 .panel > header { display: flex; justify-content: space-between; align-items: center; height: 24px; padding: 0 8px; border-bottom: 1px solid var(--rule); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); flex: none; }
 .panel > header b { color: var(--text); font-weight: 500; }
+/* Names and identifiers keep their case. "WASP-18 b" is not "WASP-18 B". */
+.panel > header .id { text-transform: none; letter-spacing: .04em; }
 .inspector { border: 0; }
 .catalogue { position: absolute; left: 10px; top: 10px; bottom: 10px; width: var(--cat-w); }
 .scroll { overflow: auto; scrollbar-width: thin; scrollbar-color: var(--rule) transparent; }
@@ -47,3 +49,31 @@ tr.hov td { background: var(--sel-bg); color: var(--text-strong); }
 .mk-eclipsing_binary { transform: rotate(45deg) scale(.85); }
 tr.st-match .mk { color: var(--st-match); } tr.st-near .mk { color: var(--st-near); } tr.st-miss .mk { color: var(--st-miss); }
 tr.st-signal .mk { color: var(--st-signal); } tr.st-eb .mk { color: var(--st-eb); } tr.st-quiet .mk { color: var(--st-quiet); }
+
+/* Search, selection, all-sky map, and keys. */
+.catalogue { container-type: inline-size; }
+.filter { display: flex; gap: 6px; padding: 6px 8px; border-bottom: 1px solid var(--rule); flex: none; }
+.filter input { flex: 1; min-width: 0; background: #000; border: 1px solid var(--rule); color: var(--text); font: 11px var(--mono); padding: 2px 6px; outline: none; }
+.filter input:focus { border-color: #4a586b; }
+.filter button, .bar .toggle { background: none; border: 1px solid var(--rule); color: var(--dim); font: 10.5px var(--sans); padding: 1px 7px; cursor: pointer; }
+.filter button.on { color: var(--text); border-color: #3a4758; background: var(--sel-bg); }
+.bar .toggle { font-size: 11px; padding: 2px 8px; }
+.bar .toggle:hover, .filter button:hover { color: var(--text); }
+.filter-errors { padding: 3px 8px; font: 10.5px var(--mono); color: var(--st-miss); border-bottom: 1px solid var(--rule); }
+.catalogue tbody tr { cursor: pointer; }
+.catalogue tbody tr:hover td { background: #0b121c; }
+tr.sel td { background: #13202f; color: var(--text-strong); box-shadow: inset 0 1px 0 #2c3d52, inset 0 -1px 0 #2c3d52; }
+td.none { color: var(--dim); padding: 8px; }
+@container (max-width: 540px) { .c-tmag, .c-s { display: none; } }
+@container (max-width: 440px) { .c-cls, .c-err { display: none; } }
+.allsky { position: absolute; right: 10px; bottom: 10px; width: clamp(240px, 17vw, 330px); aspect-ratio: 2 / 1; border: 1px solid var(--rule); cursor: crosshair; }
+.keys { position: absolute; left: calc(var(--cat-w) + 22px); bottom: 10px; }
+.keys b { color: var(--text); font-weight: 500; border: 1px solid var(--rule); padding: 0 4px; }
+.sel-mark { position: absolute; pointer-events: none; }
+.sel-mark svg { position: absolute; overflow: visible; }
+.sel-mark path { stroke: var(--text-strong); stroke-width: 1; fill: none; }
+.sel-label { position: absolute; left: 38px; top: -50px; display: flex; flex-direction: column; font: 10px/1.35 var(--mono); color: var(--dim); white-space: nowrap; }
+.sel-label b { font: 500 13px var(--sans); color: var(--text); margin-bottom: 3px; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; padding: 8px; font-size: 11px; }
+.kv > :nth-child(odd) { color: var(--dim); }
+.kv > :nth-child(even) { font-family: var(--mono); text-align: right; }

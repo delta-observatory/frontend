@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { clamp, eqToVec, northUpBasis, RAD, vecToEq, type Basis } from "./math";
+import { clamp, cross, dot, eqToVec, normalize, northUpBasis, RAD, rotate, vecToEq, type Basis, type Vec3 } from "./math";
 
 /** View from the center of the sky sphere. North stays up. */
 export interface CameraState { basis: Basis; fov: number }
@@ -15,6 +15,14 @@ function initialState(): CameraState {
 let state: CameraState = initialState();
 const listeners = new Set<() => void>();
 
+let animation: number | null = null;
+const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+
+/** Duration of a camera turn in ms: 0.3 s to 0.9 s, longer for larger angles. */
+export function flyDuration(angleRad: number): number {
+  return clamp(280 + (angleRad / RAD) * 4, 280, 900);
+}
+
 function set(next: Partial<CameraState>) {
   state = { ...state, ...next };
   for (const l of listeners) l();
@@ -25,6 +33,25 @@ export const camera = {
   subscribe(listener: () => void) {
     listeners.add(listener);
     return () => { listeners.delete(listener); };
+  },
+  /** Turns the view center to a direction along a great circle. With animate false, the turn is immediate. */
+  flyTo(target: Vec3, animate: boolean) {
+    camera.cancel();
+    const from = state.basis.f, angle = Math.acos(clamp(dot(from, target), -1, 1));
+    if (angle < 1e-6) return;
+    const c = cross(from, target), axis = Math.hypot(...c) < 1e-9 ? state.basis.u : normalize(c);
+    if (!animate) { set({ basis: northUpBasis(target) }); return; }
+    const t0 = performance.now(), duration = flyDuration(angle);
+    const step = (now: number) => {
+      const t = clamp((now - t0) / duration, 0, 1);
+      set({ basis: northUpBasis(rotate(from, axis, angle * ease(t))) });
+      animation = t < 1 ? requestAnimationFrame(step) : null;
+    };
+    animation = requestAnimationFrame(step);
+  },
+  cancel() {
+    if (animation != null) cancelAnimationFrame(animation);
+    animation = null;
   },
   /** A drag moves the sky with the pointer. A drag to the right shows the sky to the east. */
   dragBy(dxPx: number, dyPx: number, widthPx: number) {
