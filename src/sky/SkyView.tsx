@@ -21,6 +21,8 @@ function SkySync() {
       skyUniforms.uRes.value.set(size.width, size.height);
       skyUniforms.uDpr.value = dpr;
       skyUniforms.uZoom.value = clamp(110 / fov, 0.8, 2.2);
+      // Fainter stars appear as the view zooms in: magnitude 6 at 110 degrees, magnitude 8 at 40 degrees.
+      skyUniforms.uMagLimit.value = 6 + 2 * clamp((110 - fov) / 70, 0, 1);
       invalidate();
     };
     apply();

@@ -7,7 +7,7 @@ The interactive frontend for Delta Observatory: React, Three.js through React Th
 
 - Layout L2 shell: top bar, sky, movable rule, workbench, and inspector. The workbench and the inspector are empty.
 - Sky sphere in the equatorial frame with no site. North stays up. A drag turns the sky, and the wheel zooms.
-- Stars to magnitude 6, constellation lines, an equatorial grid, the ecliptic, the galactic plane, and a drawn Milky Way model.
+- Stars to magnitude 8 that fade in as the view zooms in, constellation lines, an equatorial grid, the ecliptic, the galactic plane, and a drawn Milky Way model.
 - Target markers from the API, coloured by display bins. A tooltip shows the values of a marker.
 - Observation table over the sky. A row hover shows the marker of that row.
 - Performance display: catalogue load time, time to the first sky frame, frame time, and render CPU time.

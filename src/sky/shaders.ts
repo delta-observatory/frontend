@@ -46,6 +46,8 @@ void main() {
 export const starVertex = /* glsl */ `
 ${projectionChunk}
 uniform float uZoom;
+uniform float uMagLimit;
+attribute float aMag;
 attribute float aSize;
 attribute float aGlow;
 attribute vec3 aColor;
@@ -54,9 +56,10 @@ varying float vGlow;
 void main() {
   float theta;
   gl_Position = skyClip(position, theta);
-  vColor = aColor;
+  float fade = clamp(uMagLimit + 0.5 - aMag, 0.0, 1.0);
+  vColor = aColor * fade;
   vGlow = aGlow;
-  gl_PointSize = theta > 2.6 ? 0.0 : aSize * sqrt(uZoom) * (1.0 + 3.0 * aGlow) * uDpr;
+  gl_PointSize = theta > 2.6 || fade <= 0.0 ? 0.0 : aSize * sqrt(uZoom) * (1.0 + 3.0 * aGlow) * uDpr;
 }
 `;
 

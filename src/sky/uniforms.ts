@@ -9,4 +9,5 @@ export const skyUniforms = {
   uRes: { value: new THREE.Vector2(1, 1) },
   uDpr: { value: 1 },
   uZoom: { value: 1 },
+  uMagLimit: { value: 6 },
 };

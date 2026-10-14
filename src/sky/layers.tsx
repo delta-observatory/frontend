@@ -93,16 +93,18 @@ export interface StarColumns { ra: number[]; dec: number[]; mag: number[]; bv: (
 
 export function Stars({ stars }: { stars: StarColumns }) {
   const { g, m } = useMemo(() => {
-    const n = stars.ra.length, pos = new Float32Array(n * 3), size = new Float32Array(n), glow = new Float32Array(n), col = new Float32Array(n * 3);
+    const n = stars.ra.length, pos = new Float32Array(n * 3), magA = new Float32Array(n), size = new Float32Array(n), glow = new Float32Array(n), col = new Float32Array(n * 3);
     for (let i = 0; i < n; i++) {
       pos.set(eqToVec(stars.ra[i]!, stars.dec[i]!), i * 3);
       const mag = stars.mag[i]!;
-      size[i] = Math.max(2.0, (6.6 - mag) * 1.35);
+      magA[i] = mag;
+      size[i] = Math.max(1.6, (6.8 - mag) * 1.3);
       glow[i] = mag < 2.2 ? 1 : 0;
       col.set(bvColor(stars.bv[i] ?? null), i * 3);
     }
     const g = new THREE.BufferGeometry();
     g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    g.setAttribute("aMag", new THREE.BufferAttribute(magA, 1));
     g.setAttribute("aSize", new THREE.BufferAttribute(size, 1));
     g.setAttribute("aGlow", new THREE.BufferAttribute(glow, 1));
     g.setAttribute("aColor", new THREE.BufferAttribute(col, 3));

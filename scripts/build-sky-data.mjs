@@ -1,5 +1,5 @@
 // Convert d3-celestial star and constellation files into compact sky assets.
-// Usage: node scripts/build-sky-data.mjs <directory with stars.6.json and constellations.lines.json>
+// Usage: node scripts/build-sky-data.mjs <directory with stars.8.json and constellations.lines.json>
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -9,7 +9,7 @@ if (!dir) throw new Error("Give the directory that contains the d3-celestial dat
 const read = (name) => { const raw = readFileSync(join(dir, name)); return { json: JSON.parse(raw), sha256: createHash("sha256").update(raw).digest("hex") }; };
 const r = (x, n) => Number(x.toFixed(n));
 
-const stars = read("stars.6.json");
+const stars = read("stars.8.json");
 const out = { ra: [], dec: [], mag: [], bv: [] };
 for (const f of stars.json.features) {
   const [lon, lat] = f.geometry.coordinates;

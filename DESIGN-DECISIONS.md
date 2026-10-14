@@ -23,6 +23,7 @@ Richard directs the visual style and the interaction design.
 | Light curve | A drag selects a time range. The phase fold then uses only that range. The pointer time shows as a line in the fold. **Esc** clears the range. |
 | Display fold | A click on a periodogram peak folds the data at that period. The fold title says "not a stored result", and the box model is hidden. **Esc** returns to the stored result. |
 | Keys | **/** search, **j** and **k** next and previous, **F** fly to target, **Esc** clear, **+** and **−** zoom. |
+| Star catalogue | XHIP, an extended Hipparcos compilation (VizieR V/137D), to magnitude 8: 41411 stars from the `d3-celestial` package. Stars to magnitude 6 show at a 110° field of view. Fainter stars fade in as the view zooms in, to magnitude 8 at 40°. |
 | Tools | React, Three.js through React Three Fiber, TypeScript, and Vite. The sky, the targets, and the plots render with WebGL. Tables, the inspector, and forms are React. |
 | API access | In development, a Vite proxy sends `/api` to `http://10.0.0.47:30870`. The deployed build uses NodePort 30871 and its own proxy to the API service. CORS stays disabled. |
 | Shape | Sharp corners on all panels, controls, and markers that have a box shape. |
@@ -74,6 +75,4 @@ A binary artifact format is a possible fix if the JSON artifacts miss the 400 ms
 
 ## Open
 
-| Item | Required decision |
-|---|---|
-| Star catalog | The source and magnitude limit of the background stars. |
+No design decision is open.
