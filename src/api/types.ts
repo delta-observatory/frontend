@@ -61,13 +61,40 @@ export interface ColumnArtifact {
   columns: { name: string; unit: string; dtype: "float64" | "int64" | "bool"; time_scale?: string; time_reference?: string; values: (number | boolean | null)[] }[];
 }
 
+/** The subset of JSON Schema (draft 2020-12) that method parameter schemas use. */
+export interface ParamSchema {
+  type?: "object" | "integer" | "number" | "array" | "string" | "boolean";
+  description?: string;
+  properties?: Record<string, ParamSchema>;
+  required?: string[];
+  enum?: (string | number)[];
+  default?: unknown;
+  minimum?: number;
+  maximum?: number;
+  exclusiveMinimum?: number;
+  exclusiveMaximum?: number;
+  multipleOf?: number;
+  not?: { multipleOf?: number };
+  items?: ParamSchema;
+  minItems?: number;
+  maxItems?: number;
+  uniqueItems?: boolean;
+  "x-unit"?: string;
+}
+
 export interface MethodInfo {
   id: string;
   version: number;
+  kind: string;
   summary: string;
+  title: string;
+  description: string;
   scientific_status: string;
   known_deviation?: string;
   scientific_basis: string;
+  parameters_schema: ParamSchema;
+  defaults: Record<string, unknown>;
+  constraints: string[];
 }
 
 export interface RunSummary {
@@ -93,6 +120,39 @@ export interface Measurement {
   time_scale?: string;
   time_reference?: string;
 }
+
+export type JobState = "queued" | "running" | "complete" | "inconclusive" | "failed" | "cancelled";
+
+export interface JobRow {
+  id: string;
+  observation_id: string;
+  state: JobState;
+  attempts: number;
+  max_attempts: number;
+  claimed_by: string | null;
+  created_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+  outcome: string | null;
+  error: unknown;
+}
+
+export interface RunDetail extends Omit<RunSummary, "input_count" | "job_states"> {
+  parameters: Record<string, unknown>;
+  requested_by: string;
+  inputs: string[];
+  jobs: JobRow[];
+}
+
+export interface RunRequest {
+  method: { id: string; version: number };
+  parameters: Record<string, unknown>;
+  observation_ids: string[];
+  label?: string;
+}
+
+/** A 422 response: one entry for each error. loc is the path in the request body. */
+export interface ValidationErrorBody { detail: { loc: (string | number)[]; msg: string }[] | string }
 
 export interface JobResult {
   job_id: string;

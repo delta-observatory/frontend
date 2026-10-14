@@ -6,7 +6,8 @@ The interactive frontend for Delta Observatory: React, Three.js through React Th
 ## Current scope
 
 - Layout L2 shell: top bar, sky, movable rule, workbench, and inspector.
-- Compact layout for phones and narrow windows: the sky on top, a selection strip with previous and next buttons, and tabs for Targets, Curve, Periodogram, Fold, and Details. Touch: one finger turns the sky, two fingers zoom, and a tap selects.
+- Compact layout for phones and narrow windows: the sky on top, a selection strip with previous and next buttons, and tabs.
+  The tabs are Targets, Curve, Periodogram, Fold, Details, and Run. Touch: one finger turns the sky, two fingers zoom, and a tap selects.
 - Sky sphere in the equatorial frame with no site. North stays up. A drag turns the sky, and the wheel zooms.
 - Stars to magnitude 8. Stars fainter than magnitude 6 fade in as the view zooms in.
 - Constellation lines, an equatorial grid, the ecliptic, the galactic plane, and a drawn Milky Way model.
@@ -26,9 +27,16 @@ The interactive frontend for Delta Observatory: React, Three.js through React Th
   - **Esc** clears the time range and the display period.
 - Inspector: the method status from the API, target values, search and reference-comparison measurements with units, uncertainty, and flags, input checks, provenance, and load times.
 
-- Target changes: during a load, the plots keep the previous result, dim and labelled. The app loads a target in advance when the pointer rests on its marker or row, and it loads the next and previous rows after each selection.
+- Target changes: during a load, the plots keep the previous result, dim and labelled. The app loads a target in advance when the pointer rests on its marker or row. It also loads the next and previous rows after each selection.
 
-Run comparison, parameter controls, and new runs are not implemented.
+- Run panel (the Run tab, or the run name in the top bar):
+  - A parameter form built from the method's parameter schema, with units, defaults, limits, and the cross-field rules. An amber mark shows each changed value. The API checks the request again, and its 422 errors show at the fields.
+  - Inputs: the selected target, or all search matches.
+  - An estimate of the BLS trial periods for each light curve and of the worker time, from the measured rate of the shown run.
+  - The run list with job states, changed parameters, a job table, and a button that cancels queued jobs.
+  - "Show results" selects the run that the sky, plots, and measurements show. The browser remembers the choice. Without a choice, the run with the most complete jobs shows.
+
+Run comparison is not implemented.
 
 ## Development
 
@@ -67,9 +75,12 @@ The frontend reads only these endpoints:
 | `GET /api/datasets` | Dataset name and ready count. |
 | `GET /api/observations` | Observation list. |
 | `GET /api/observations/{id}` | Sky position (`RA_OBJ`, `DEC_OBJ`) and `TESSMAG` from the header. The list has no sky position. |
-| `GET /api/runs` | The newest `tess-bls` run with complete jobs. |
+| `GET /api/runs` | Runs with job states. |
 | `GET /api/runs/{id}/results` | Measurements, artifacts, diagnostics, software, and resources of each job. |
-| `GET /api/methods/{id}/{version}` | Scientific status of the method. |
+| `GET /api/methods` | Methods with their parameter schemas, defaults, cross-field rules, and scientific status. |
+| `POST /api/runs` | A new run. |
+| `GET /api/runs/{id}` | Parameters and jobs of one run. |
+| `POST /api/jobs/{id}/cancel` | Cancels one queued job. |
 | `GET /api/artifacts/{id}/content` | Light curve, prepared series, periodogram, search summary, and input checks of the selected target. |
 
 `src/api/types.ts` lists only the response fields that the frontend reads.
@@ -88,9 +99,12 @@ The backend owns these responses. The measurement fields follow `database/contra
 | `src/Catalogue.tsx` | Observation table and search controls. |
 | `src/Inspector.tsx` | Measurements, checks, and provenance of the selected target. |
 | `src/motion.ts` | Motion setting. |
+| `src/runs/params.ts` | Parameter form logic from a method schema, and the BLS trial estimate. `params.test.ts` tests it. |
+| `src/runs/useRuns.ts` | Run list refresh, run submission, and job cancellation. |
+| `src/runs/RunPanel.tsx` | Run form and run list. |
 | `src/layout.ts` | Choice between the full and the compact layout. |
 | `src/api/` | HTTP access and response types. |
-| `src/data/catalogue.ts` | Target list, sky positions, run measurements, and display bins. |
+| `src/data/catalogue.ts` | Observations, the active run's results, the target list, and display bins. |
 | `src/data/search.ts` | Search parser. `search.test.ts` tests it. |
 | `src/data/evidence.ts` | Artifact loading for one result, with a cache of 12 results. |
 | `src/plots/surface.ts` | Plot layers: 2D axes, WebGL data, 2D marks. |

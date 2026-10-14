@@ -2,7 +2,7 @@ import { getJson, pool } from "../api/client";
 import type { Dataset, Health, JobResult, MethodInfo, Observation, ObservationDetail, Page, RunResults, RunSummary, TargetClass } from "../api/types";
 import { eqToVec, type Vec3 } from "../sky/math";
 
-/** One observation with its sky position and its result in the selected run. */
+/** One observation with its sky position and its result in the active run. */
 export interface Target {
   id: string;
   tic: string;
@@ -20,17 +20,20 @@ export interface Target {
   relErr: number | null;
 }
 
-export interface Catalogue {
+/** Data that does not depend on the active run. */
+export interface Base {
   health: Health;
   dataset: Dataset | null;
-  run: RunSummary | null;
-  method: MethodInfo | null;
-  targets: Target[];
-  /** Observation detail and run job for each observation ID. The evidence loader uses them. */
+  methods: Map<string, MethodInfo>;
   observations: Map<string, ObservationDetail>;
-  jobs: Map<string, JobResult>;
   loadMs: number;
 }
+
+/** The results of one run, by observation ID. */
+export interface RunData { run: RunSummary; jobs: Map<string, JobResult> }
+
+/** What the evidence loader needs: observation details and the jobs of the active run. */
+export interface Catalogue { observations: Map<string, ObservationDetail>; jobs: Map<string, JobResult> }
 
 const num = (x: unknown): number | null => (typeof x === "number" && Number.isFinite(x) ? x : null);
 
@@ -43,25 +46,42 @@ async function allObservations(): Promise<Observation[]> {
   }
 }
 
-export async function loadCatalogue(): Promise<Catalogue> {
+export async function loadBase(): Promise<Base> {
   const t0 = performance.now();
-  const [health, datasets, observations, runs] = await Promise.all([
-    getJson<Health>("/health"),
-    getJson<Dataset[]>("/datasets"),
-    allObservations(),
-    getJson<RunSummary[]>("/runs"),
+  const [health, datasets, observations, methodList] = await Promise.all([
+    getJson<Health>("/health"), getJson<Dataset[]>("/datasets"), allObservations(), getJson<MethodInfo[]>("/methods"),
   ]);
   // The list response has no sky position. Each detail response has RA_OBJ and DEC_OBJ in its header.
-  const run = runs.find((r) => r.method_id === "tess-bls" && (r.job_states.complete ?? 0) > 0) ?? null;
-  const [details, results, method] = await Promise.all([
-    pool(observations, 8, (o) => getJson<ObservationDetail>(`/observations/${o.id}`)),
-    run ? getJson<RunResults>(`/runs/${run.id}/results`) : Promise.resolve<RunResults | null>(null),
-    run ? getJson<MethodInfo>(`/methods/${run.method_id}/${run.method_version}`) : Promise.resolve<MethodInfo | null>(null),
-  ]);
-  const byObservation = new Map((results?.jobs ?? []).map((j) => [j.observation_id, j]));
-  const targets = details.map((d): Target => {
+  const details = await pool(observations, 8, (o) => getJson<ObservationDetail>(`/observations/${o.id}`));
+  return {
+    health,
+    dataset: datasets.find((d) => d.id === observations[0]?.dataset_id) ?? datasets[0] ?? null,
+    methods: new Map(methodList.map((m) => [`${m.id}/${m.version}`, m])),
+    observations: new Map(details.map((d) => [d.id, d])),
+    loadMs: performance.now() - t0,
+  };
+}
+
+export async function loadRun(run: RunSummary): Promise<RunData> {
+  const results = await getJson<RunResults>(`/runs/${run.id}/results`);
+  return { run, jobs: new Map(results.jobs.map((j) => [j.observation_id, j])) };
+}
+
+/** The default active run: the analysis run with the most complete jobs. The newest wins a tie. `runs` is newest first. */
+export function defaultRun(runs: RunSummary[], methods: Map<string, MethodInfo>): RunSummary | null {
+  let best: RunSummary | null = null;
+  for (const r of runs) {
+    if (methods.get(`${r.method_id}/${r.method_version}`)?.kind !== "analysis") continue;
+    if ((r.job_states.complete ?? 0) > (best?.job_states.complete ?? 0)) best = r;
+  }
+  return best;
+}
+
+/** Targets with the measurements of the active run. A target that is not in the run has no measurements. */
+export function buildTargets(base: Base, run: RunData | null): Target[] {
+  return [...base.observations.values()].map((d): Target => {
     const ra = num(d.header.RA_OBJ), dec = num(d.header.DEC_OBJ), planet = d.labels.planets?.[0] ?? null;
-    const job = byObservation.get(d.id);
+    const job = run?.jobs.get(d.id);
     const m = (role: "search" | "reference_comparison", name: string) => job?.measurements[role]?.find((x) => x.name === name)?.value ?? null;
     return {
       id: d.id, tic: d.target_id, sector: d.sector, cls: d.labels.class, name: planet?.name ?? null, refPeriod: planet?.period_days ?? null,
@@ -69,10 +89,6 @@ export async function loadCatalogue(): Promise<Catalogue> {
       period: m("search", "period"), depth: m("search", "depth"), snr: m("search", "depth_snr"), relErr: m("reference_comparison", "relative_period_error"),
     };
   });
-  return {
-    health, dataset: datasets.find((d) => d.id === observations[0]?.dataset_id) ?? datasets[0] ?? null, run, method, targets,
-    observations: new Map(details.map((d) => [d.id, d])), jobs: byObservation, loadMs: performance.now() - t0,
-  };
 }
 
 /** Display bins for the marker colour. They are not a validation criterion. */
