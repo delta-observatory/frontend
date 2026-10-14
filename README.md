@@ -25,6 +25,8 @@ The interactive frontend for Delta Observatory: React, Three.js through React Th
   - **Esc** clears the time range and the display period.
 - Inspector: the method status from the API, target values, search and reference-comparison measurements with units, uncertainty, and flags, input checks, provenance, and load times.
 
+- Target changes: during a load, the plots keep the previous result, dim and labelled. The app loads a target in advance when the pointer rests on its marker or row, and it loads the next and previous rows after each selection.
+
 Run comparison, parameter controls, and new runs are not implemented.
 
 ## Development

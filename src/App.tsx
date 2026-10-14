@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { Catalogue } from "./Catalogue";
 import { loadCatalogue, type Catalogue as CatalogueData } from "./data/catalogue";
-import { loadEvidence, type Evidence } from "./data/evidence";
+import { loadEvidence, prefetchEvidence, type Evidence } from "./data/evidence";
 import { Inspector } from "./Inspector";
 import { Fold } from "./plots/Fold";
 import { LightCurve } from "./plots/LightCurve";
@@ -75,7 +75,7 @@ export function App() {
     if (!selected || !data) { setEvidence(null); return; }
     let live = true;
     setEvError(null);
-    loadEvidence(selected, data).then((ev) => { if (live) setEvidence(ev); }, (e: Error) => { if (live) { setEvidence(null); setEvError(e.message); } });
+    loadEvidence(selected, data).then((ev) => { if (live) setEvidence(ev); }, (e: Error) => { if (live) setEvError(e.message); });
     return () => { live = false; };
   }, [selected, data]);
 
@@ -85,7 +85,23 @@ export function App() {
     const t0 = changeStart.current;
     requestAnimationFrame(() => requestAnimationFrame(() => { setChangeMs(performance.now() - t0); changeStart.current = null; }));
   }, [evidence]);
-  const shown = evidence && evidence.observation.id === selected ? evidence : null;
+  // During a load, the plots keep the previous result, dim and labelled, so that the workbench does not go blank.
+  const fresh = evidence && evidence.observation.id === selected ? evidence : null;
+  const shownTarget = evidence ? targets.find((t) => t.id === evidence.observation.id) ?? null : null;
+
+  // Loads in advance: the next and previous rows after each selection.
+  useEffect(() => {
+    if (!data || !fresh) return;
+    const i = rows.findIndex((t) => t.id === fresh.observation.id);
+    for (const t of [rows[i + 1], rows[i - 1]]) if (t) prefetchEvidence(t.id, data);
+  }, [data, fresh, rows]);
+
+  // Loads in advance when the pointer rests on a marker or a row for 120 ms.
+  useEffect(() => {
+    if (!data || !hover) return;
+    const id = setTimeout(() => prefetchEvidence(hover, data), 120);
+    return () => clearTimeout(id);
+  }, [data, hover]);
 
   // Keys: / search, j and k next and previous, f turn to the selection, + and − zoom.
   useEffect(() => {
@@ -144,20 +160,26 @@ export function App() {
         {error && <div className="error">API error. {error}</div>}
       </div>
       <div className="rule" onPointerDown={onRule} title="Drag to resize" />
-      <div className="bench">
-        {shown ? (
+      <div className={`bench${evidence && !fresh ? " stale" : ""}`}>
+        {evidence ? (
           <>
-            <LightCurve ev={shown} brush={brush} cursorT={cursorT} foldP={foldP} onBrush={setBrush} onCursorT={setCursorT} />
+            <LightCurve ev={evidence} brush={brush} cursorT={cursorT} foldP={foldP} onBrush={setBrush} onCursorT={setCursorT} />
             <div className="bench-row">
-              <Periodogram ev={shown} foldP={foldP} cursorP={cursorP} onFoldP={setFoldP} onCursorP={setCursorP} />
-              <Fold ev={shown} brush={brush} cursorT={cursorT} foldP={foldP} />
+              <Periodogram ev={evidence} foldP={foldP} cursorP={cursorP} onFoldP={setFoldP} onCursorP={setCursorP} />
+              <Fold ev={evidence} brush={brush} cursorT={cursorT} foldP={foldP} />
             </div>
+            {!fresh && current && (
+              <div className="bench-status">
+                {evError ? <span className="bad">{current.name ?? current.tic}: {evError}</span> : <>Loading <b>{current.name ?? current.tic}</b></>}
+                {" · showing "}{shownTarget?.name ?? shownTarget?.tic}
+              </div>
+            )}
           </>
         ) : <div className="empty">{evError ?? (current ? "Loading the result artifacts…" : "No target selected.")}</div>}
       </div>
       <section className="panel inspector">
         <header>{current ? <span className="id"><b>{current.name ?? current.tic}</b> · {current.tic} · S{String(current.sector).padStart(2, "0")}</span> : <span>Inspector</span>}</header>
-        {current ? <Inspector target={current} ev={shown} method={data?.method ?? null} run={data?.run ?? null} loading={!shown && !evError} error={evError} changeMs={changeMs} /> : <div className="empty">No target selected.</div>}
+        {current ? <Inspector target={current} observation={data?.observations.get(current.id) ?? null} ev={fresh} method={data?.method ?? null} run={data?.run ?? null} loading={!fresh && !evError} error={evError} changeMs={changeMs} /> : <div className="empty">No target selected.</div>}
       </section>
     </div>
   );

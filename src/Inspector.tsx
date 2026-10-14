@@ -1,5 +1,5 @@
 import { Fragment } from "react";
-import type { Measurement, MethodInfo, RunSummary } from "./api/types";
+import type { Measurement, MethodInfo, ObservationDetail, RunSummary } from "./api/types";
 import type { Target } from "./data/catalogue";
 import type { Evidence } from "./data/evidence";
 
@@ -47,12 +47,12 @@ function Measurements({ list }: { list: Measurement[] }) {
   );
 }
 
-interface Props { target: Target; ev: Evidence | null; method: MethodInfo | null; run: RunSummary | null; loading: boolean; error: string | null; changeMs: number | null }
+interface Props { target: Target; observation: ObservationDetail | null; ev: Evidence | null; method: MethodInfo | null; run: RunSummary | null; loading: boolean; error: string | null; changeMs: number | null }
 
 /** Values, measurements, checks, and provenance of the selected target. */
-export function Inspector({ target: t, ev, method, run, loading, error, changeMs }: Props) {
+export function Inspector({ target: t, observation, ev, method, run, loading, error, changeMs }: Props) {
   const f = (x: number | null | undefined, d: number) => (x == null ? "—" : x.toFixed(d));
-  const h = ev?.observation.header ?? {};
+  const h = observation?.header ?? ev?.observation.header ?? {};
   const num = (k: string) => (typeof h[k] === "number" ? (h[k] as number) : null);
   const search = ev?.job.measurements.search ?? [], ref = ev?.job.measurements.reference_comparison ?? [];
   const sw = ev?.job.software, res = ev?.job.resources;

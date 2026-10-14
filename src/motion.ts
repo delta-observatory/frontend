@@ -13,12 +13,14 @@ function initial(): Motion {
 }
 
 let value: Motion = initial();
+document.documentElement.dataset.motion = value;
 const listeners = new Set<() => void>();
 
 export const motion = {
   get: () => value,
   set(next: Motion) {
     value = next;
+    document.documentElement.dataset.motion = next;
     try { localStorage.setItem(KEY, next); } catch { /* The setting stays for this page only. */ }
     for (const l of listeners) l();
   },

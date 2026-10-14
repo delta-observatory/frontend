@@ -71,12 +71,29 @@ async function fetchArtifact<T>(a: Artifact | undefined, kind: string, timing: E
 }
 
 const cache = new Map<string, Evidence>();
+const inFlight = new Map<string, Promise<Evidence>>();
 const CACHE_SIZE = 12;
 
-/** Loads the artifacts of one observation's job. Keeps the 12 most recent in memory. */
-export async function loadEvidence(observationId: string, catalogue: Catalogue): Promise<Evidence> {
+/** True when the result of the observation is in memory. */
+export const isLoaded = (observationId: string) => cache.has(observationId);
+
+/** Loads the artifacts of one observation's job. Keeps the 12 most recent in memory. One load runs for each observation. */
+export function loadEvidence(observationId: string, catalogue: Catalogue): Promise<Evidence> {
   const hit = cache.get(observationId);
-  if (hit) { cache.delete(observationId); cache.set(observationId, hit); return hit; }
+  if (hit) { cache.delete(observationId); cache.set(observationId, hit); return Promise.resolve(hit); }
+  const running = inFlight.get(observationId);
+  if (running) return running;
+  const p = load(observationId, catalogue).finally(() => inFlight.delete(observationId));
+  inFlight.set(observationId, p);
+  return p;
+}
+
+/** Starts a load and ignores its result. A later selection uses the cached result. */
+export function prefetchEvidence(observationId: string, catalogue: Catalogue) {
+  loadEvidence(observationId, catalogue).catch(() => { /* The selection shows the error if it happens again. */ });
+}
+
+async function load(observationId: string, catalogue: Catalogue): Promise<Evidence> {
   const observation = catalogue.observations.get(observationId) ?? await getJson<ObservationDetail>(`/observations/${observationId}`);
   const job = catalogue.jobs.get(observationId);
   if (!job) throw new Error("The selected run has no job for this observation.");
