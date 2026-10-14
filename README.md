@@ -32,6 +32,10 @@ npm run build      # type check and production build in dist/
 The development server binds to `0.0.0.0:5173`.
 It sends `/api` to `http://10.0.0.47:30870`. Set `DELTA_API_URL` to use another API.
 The address hash sets the first view, for example `#ra=266.4&dec=-28.9&fov=100`.
+Vite accepts IP addresses and the host names `machine` and `machine.local`. It blocks other host names.
+
+The sky view needs WebGL 2. Without it, the sky area shows the browser's reason, and the other panels still work.
+Chromium started with `--disable-gpu` has no WebGL.
 
 `.npmrc` sets exact versions. npm 10.9.8 fails to add `vitest` with the error `Cannot read properties of null (reading 'edgesOut')`.
 To add or change `vitest`, run `npm install -D vitest@<version> --legacy-peer-deps`. `npm ci` works without the flag.

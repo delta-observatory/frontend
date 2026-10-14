@@ -6,6 +6,7 @@ const api = process.env.DELTA_API_URL ?? "http://10.0.0.47:30870";
 
 export default defineConfig({
   plugins: [react()],
-  server: { proxy: { "/api": { target: api, changeOrigin: true } } },
+  // Vite blocks host names that are not in this list. IP addresses are always allowed.
+  server: { allowedHosts: ["machine", "machine.local"], proxy: { "/api": { target: api, changeOrigin: true } } },
   preview: { proxy: { "/api": { target: api, changeOrigin: true } } },
 });

@@ -21,6 +21,8 @@ body { background: var(--bg); color: var(--text); font: 12px/1.35 var(--sans); -
 .sky-hud { position: absolute; left: calc(var(--cat-w) + 22px); top: 8px; }
 .tip { position: absolute; pointer-events: none; background: #000; border: 1px solid #3a4758; padding: 5px 8px; font: 10.5px/1.5 var(--mono); color: var(--dim); white-space: nowrap; z-index: 5; }
 .tip b { color: var(--text-strong); font: 500 12px var(--sans); }
+.sky-unavailable { position: absolute; left: calc(var(--cat-w) + 22px); right: 360px; top: 40%; display: flex; flex-direction: column; gap: 6px; border: 1px solid var(--model); background: #000; padding: 10px 12px; font: 11px/1.5 var(--mono); color: var(--dim); }
+.sky-unavailable b { color: var(--model); font-weight: 500; }
 .error { position: absolute; left: calc(var(--cat-w) + 22px); bottom: 12px; border: 1px solid var(--st-miss); color: var(--st-miss); background: #000; padding: 6px 10px; font: 11px var(--mono); }
 
 .rule { grid-column: 1 / -1; background: #0b1018; cursor: row-resize; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }

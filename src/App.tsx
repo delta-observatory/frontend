@@ -7,7 +7,11 @@ import { marks } from "./perf/frames";
 import { AllSky } from "./sky/AllSky";
 import { camera } from "./sky/camera";
 import type { StarColumns } from "./sky/layers";
+import { SkyBoundary, SkyUnavailable } from "./sky/SkyError";
 import { SkyView } from "./sky/SkyView";
+import { webgl2Status } from "./sky/webgl";
+
+const WEBGL = webgl2Status();
 
 async function getStatic<T>(path: string): Promise<T> {
   const res = await fetch(path);
@@ -96,7 +100,11 @@ export function App() {
         <span className="tabs"><span className="on">SKY</span><span>DATASETS</span><span>ANALYSIS</span><span>EVIDENCE</span></span>
       </div>
       <div className="sky-cell" ref={skyCell}>
-        <SkyView targets={targets} stars={stars} lines={lines} hover={hover} selected={selected} matches={matches} onHover={setHover} onSelect={select} />
+        {WEBGL.ok ? (
+          <SkyBoundary>
+            <SkyView targets={targets} stars={stars} lines={lines} hover={hover} selected={selected} matches={matches} onHover={setHover} onSelect={select} />
+          </SkyBoundary>
+        ) : <SkyUnavailable reason={WEBGL.reason} />}
         {data && (
           <Catalogue rows={rows} total={targets.length} hover={hover} selected={selected} query={query} cls={cls} errors={search.errors} input={searchInput}
             onHover={setHover} onSelect={select} onQuery={setQuery} onClass={setCls} />
