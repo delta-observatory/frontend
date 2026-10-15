@@ -38,6 +38,13 @@ The interactive frontend for Delta Observatory: React, Three.js through React Th
 
 Run comparison is not implemented.
 
+## Sign-in
+
+The API needs a client token for each request. The first visit in a browser shows a sign-in panel with one token field.
+The browser keeps the token in localStorage and sends it as `Authorization: Bearer <token>`.
+The top bar shows the client name. "sign out" removes the token. A 401 response also signs out.
+The frontend proxy adds no token. An agent on the same computer therefore cannot act as the signed-in person through port 30871.
+
 ## Development
 
 ```bash

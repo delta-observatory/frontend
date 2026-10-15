@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { Catalogue } from "./Catalogue";
+import { getJson, session } from "./api/client";
 import { getObservation, loadBase, loadDefaultRun, loadTargets, type Base, type Target } from "./data/catalogue";
 import type { ObservationDetail, RunSummary } from "./api/types";
 import { RunPanel } from "./runs/RunPanel";
@@ -33,6 +34,7 @@ const TABS: [Tab, string][] = [["targets", "Targets"], ["light", "Curve"], ["pgr
 
 export function App() {
   const [base, setBase] = useState<Base | null>(null);
+  const [me, setMe] = useState<{ name: string; kind: string } | null>(null);
   const { runs, refresh: refreshRuns, expect: expectRun } = useRuns();
   // The run that the sky, plots, and measurements show. This browser remembers the choice.
   const [activeRunId, setActiveRunIdState] = useState<string | null>(() => { try { return localStorage.getItem("delta.activeRun"); } catch { return null; } });
@@ -67,6 +69,7 @@ export function App() {
 
   useEffect(() => {
     loadBase().then(setBase, (e: Error) => setError(e.message));
+    getJson<{ name: string; kind: string }>("/me").then(setMe, () => {});
     getStatic<StarColumns>("/sky/stars.json").then(setStars, (e: Error) => setError(e.message));
     getStatic<{ lines: { points: number[] }[] }>("/sky/constellations.json").then((c) => setLines(c.lines.map((l) => l.points)), (e: Error) => setError(e.message));
   }, []);
@@ -219,6 +222,7 @@ export function App() {
   const inspector = current
     ? <Inspector target={current} observation={observation?.id === current.id ? observation : null} ev={fresh} method={method} run={activeRun} loading={!fresh && !evError} error={evError} changeMs={changeMs} />
     : <div className="empty">No target selected.</div>;
+  const whoButton = <button className="seg toggle who" onClick={() => session.set(null)} title="Sign out of this browser">{me ? me.name : "…"} · sign out</button>;
   const motionButton = <button className="seg toggle" onClick={() => motion.set(mode === "animated" ? "reduced" : "animated")} title="Reduced motion removes camera animation">motion <b>{mode}</b></button>;
 
   if (compact) {
@@ -228,6 +232,7 @@ export function App() {
         <div className="bar">
           <span className="brand">DELTA OBSERVATORY</span>
           <span className="seg">api <b className={base ? "ok" : error ? "bad" : ""}>{base ? base.health.status : error ? "error" : "…"}</b></span>
+          {whoButton}
           {motionButton}
         </div>
         <div className="sky-cell" ref={skyCell}>
@@ -279,7 +284,8 @@ export function App() {
         <button className="seg run-seg" onClick={() => setSide("run")} title="Open the run panel">run <b>{run ? run.label || run.id.slice(0, 8) : "—"}</b> · {run ? `${run.method_id} v${run.method_version}` : "no analysis run"} · <b>{run ? `${run.job_states.complete ?? 0}/${run.input_count}` : "—"}</b> complete</button>
         <span className="seg">api <b className={base ? "ok" : error ? "bad" : ""}>{base ? base.health.status : error ? "error" : "…"}</b></span>
         <span className="seg perf">catalogue {base && targetsLoadMs != null ? `${(base.loadMs + targetsLoadMs).toFixed(0)} ms` : "…"} · first sky {firstSky != null ? `${firstSky.toFixed(0)} ms` : "…"}</span>
-        {motionButton}
+        {whoButton}
+          {motionButton}
         <span className="tabs"><span className="on">SKY</span><span>DATASETS</span><span>ANALYSIS</span><span>EVIDENCE</span></span>
       </div>
       <div className="sky-cell" ref={skyCell}>

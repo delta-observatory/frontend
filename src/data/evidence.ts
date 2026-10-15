@@ -1,3 +1,4 @@
+import { apiFetch } from "../api/client";
 import type { Artifact, ColumnArtifact, JobResult, KnownPlanet, ObservationDetail } from "../api/types";
 import { getJobResult, getObservation } from "./catalogue";
 
@@ -59,7 +60,7 @@ function toColumns(a: ColumnArtifact): { cols: Columns; meta: Record<string, Col
 async function fetchArtifact<T>(a: Artifact | undefined, kind: string, timing: Evidence["timing"]): Promise<T> {
   if (!a) throw new Error(`The result has no ${kind} artifact.`);
   const t0 = performance.now();
-  const res = await fetch(a.content_url);
+  const res = await apiFetch(a.content_url);
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}: GET ${a.content_url}`);
   const text = await res.text();
   const t1 = performance.now();

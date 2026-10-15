@@ -52,6 +52,18 @@ tr.hov td { background: var(--sel-bg); color: var(--text-strong); }
 tr.st-match .mk { color: var(--st-match); } tr.st-near .mk { color: var(--st-near); } tr.st-miss .mk { color: var(--st-miss); }
 tr.st-signal .mk { color: var(--st-signal); } tr.st-eb .mk { color: var(--st-eb); } tr.st-quiet .mk { color: var(--st-quiet); }
 
+/* Sign-in panel and the signed-in client in the top bar. */
+.signin { position: fixed; inset: 0; display: grid; place-items: center; background: var(--bg); padding: 16px; }
+.signin form { display: flex; flex-direction: column; gap: 8px; width: min(360px, 100%); border: 1px solid var(--rule); background: var(--panel); padding: 18px; }
+.signin .brand { font-weight: 600; letter-spacing: .22em; color: var(--text-strong); font-size: 11px; margin-bottom: 8px; }
+.signin label { font: 10px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+.signin input { background: #000; border: 1px solid var(--rule); color: var(--text); font: 14px var(--mono); padding: 7px 8px; outline: none; border-radius: 0; }
+.signin input:focus { border-color: #4a586b; }
+.signin button { background: var(--text-strong); color: #000; border: 0; font: 500 12px var(--sans); padding: 8px; cursor: pointer; }
+.signin button:disabled { background: none; border: 1px solid var(--rule); color: var(--dim); }
+.signin .err { color: var(--st-miss); font: 11px var(--mono); }
+.signin .note { color: var(--dim); font-size: 11px; }
+
 /* Search, selection, all-sky map, and keys. */
 .catalogue { container-type: inline-size; }
 .filter { display: flex; gap: 6px; padding: 6px 8px; border-bottom: 1px solid var(--rule); flex: none; }
@@ -116,6 +128,7 @@ td.na { color: var(--dim); cursor: help; }
 .compact .bar { gap: 14px; padding: env(safe-area-inset-top) 12px 0; font-size: 12px; }
 .compact .bar .brand { font-size: 11px; letter-spacing: .2em; }
 .compact .bar .toggle { margin-left: auto; padding: 5px 10px; font-size: 11px; }
+.compact .bar .who + .toggle { margin-left: 0; }
 .compact .sky-hud { left: 10px; top: 8px; }
 .compact .hud-extra { display: none; }
 .compact .allsky { width: min(38vw, 200px); right: 8px; bottom: 8px; }

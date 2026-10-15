@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ApiError, getJson, pool } from "../api/client";
+import { ApiError, apiFetch, getJson, pool } from "../api/client";
 import type { RunDetail, RunEstimate, RunRequest, RunSummary, ValidationErrorBody } from "../api/types";
 
 const busy = (r: RunSummary) => (r.job_states.queued ?? 0) + (r.job_states.running ?? 0) > 0;
@@ -62,7 +62,7 @@ export type SubmitResult = { ok: true; run: RunDetail } | Rejection;
 export type EstimateResult = { ok: true; estimate: RunEstimate } | Rejection;
 
 const post = (path: string, req: RunRequest) =>
-  fetch(`/api${path}`, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(req) });
+  apiFetch(`/api${path}`, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(req) });
 
 /** POST /api/runs. A 422 response maps each error to its parameter path, for example "search.maximum_period". */
 export async function submitRun(req: RunRequest): Promise<SubmitResult> {
@@ -103,7 +103,7 @@ export async function cancelQueued(runId: string): Promise<{ cancelled: number; 
   const queued = run.jobs.filter((j) => j.state === "queued");
   let cancelled = 0, started = 0;
   await pool(queued, 4, async (j) => {
-    const res = await fetch(`/api/jobs/${j.id}/cancel`, { method: "POST" });
+    const res = await apiFetch(`/api/jobs/${j.id}/cancel`, { method: "POST" });
     if (res.ok) cancelled++;
     else if (res.status === 409) started++;
     else throw new ApiError(res.status, `/jobs/${j.id}/cancel`, `${res.status} ${res.statusText}`);
