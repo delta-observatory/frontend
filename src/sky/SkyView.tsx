@@ -145,7 +145,7 @@ export function SkyView({ targets, stars, lines, hover, selected, matches, onHov
       {tip && (
         <div className="tip" style={{ left: tip.x + 14, top: tip.y + 10 }}>
           <b>{tip.t.name ?? "—"}</b> {tip.t.tic}
-          <br />{CLASS[tip.t.cls]} · S{String(tip.t.sector).padStart(2, "0")} · Tmag {tip.t.tmag?.toFixed(2) ?? "—"}
+          <br />{tip.t.cls ? CLASS[tip.t.cls] : "class withheld"} · S{String(tip.t.sector).padStart(2, "0")} · Tmag {tip.t.tmag?.toFixed(2) ?? "—"}
           <br />P bls {tip.t.period?.toFixed(5) ?? "—"} d · S/N {tip.t.snr?.toFixed(1) ?? "—"}
           {tip.t.refPeriod != null && <><br />P ref {tip.t.refPeriod.toFixed(5)} d · |ΔP/P| {tip.t.relErr?.toExponential(1) ?? "—"}</>}
         </div>

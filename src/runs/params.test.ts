@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ParamSchema } from "../api/types";
-import { blsTrials, check, failedConstraints, fields, parse, setAt } from "./params";
+import { check, failedConstraints, fields, parse, setAt } from "./params";
 
 const schema: ParamSchema = {
   type: "object",
@@ -48,9 +48,7 @@ describe("parameter form logic", () => {
     expect(failed[1]!.paths).toEqual(["search.duration_days", "search.minimum_period"]);
   });
 
-  it("estimates the BLS grid size of the T01 settings", () => {
-    // Run e0534db5 recorded 35678 trials for a 27.406 d baseline. The estimate is within 0.2 %.
-    const n = blsTrials(27.406, 0.5, 10, [0.04, 0.06, 0.08, 0.1, 0.12, 0.16, 0.2], 1);
-    expect(Math.abs(n / 35678 - 1)).toBeLessThan(0.002);
+  it("accepts number literals in rules", () => {
+    expect(failedConstraints(["min(a.list) > 0"], { a: { list: [0, 2] } })).toEqual([{ rule: "min(a.list) > 0", paths: ["a.list"] }]);
   });
 });

@@ -61,7 +61,7 @@ export function Inspector({ target: t, observation, ev, method, run, loading, er
       {method && <div className="prov"><b className="id">{method.id} v{method.version}</b> · {method.scientific_status}</div>}
       <h3>Target</h3>
       <div className="kv">
-        <span>label</span><span>{CLASS[t.cls]}{t.name ? ` · ${t.name}` : ""}</span>
+        <span>label</span><span>{t.cls ? CLASS[t.cls] : "withheld"}{t.name ? ` · ${t.name}` : ""}</span>
         <span>RA, Dec (deg)</span><span>{f(t.ra, 5)}, {f(t.dec, 5)}</span>
         <span>sector · camera · CCD</span><span>{t.sector} · {num("CAMERA") ?? "—"} · {num("CCD") ?? "—"}</span>
         <span>T mag</span><span>{f(t.tmag, 3)}</span>

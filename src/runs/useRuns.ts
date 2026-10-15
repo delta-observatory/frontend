@@ -1,20 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, getJson, pool } from "../api/client";
-import type { RunDetail, RunRequest, RunSummary, ValidationErrorBody } from "../api/types";
+import type { RunDetail, RunEstimate, RunRequest, RunSummary, ValidationErrorBody } from "../api/types";
 
 const busy = (r: RunSummary) => (r.job_states.queued ?? 0) + (r.job_states.running ?? 0) > 0;
 
 /**
  * The run list. It refreshes every 2 s while a job waits or runs, and every 15 s at other times.
- * `expect` adds a run from its POST response at once. A GET directly after the POST can still return
- * the old list, so the list refreshes every 0.5 s until the API lists the run, for at most 10 attempts.
+ * `expect` adds a run from its POST response at once, then refreshes the list.
  */
 export function useRuns(): { runs: RunSummary[] | null; error: string | null; refresh: () => void; expect: (run: RunDetail) => void } {
   const [runs, setRuns] = useState<RunSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const timer = useRef<number | undefined>(undefined);
   const generation = useRef(0);
-  const expected = useRef<{ run: RunSummary; tries: number } | null>(null);
   const refresh = useCallback(() => {
     clearTimeout(timer.current);
     const g = ++generation.current;
@@ -22,9 +20,6 @@ export function useRuns(): { runs: RunSummary[] | null; error: string | null; re
     getJson<RunSummary[]>("/runs").then(
       (r) => {
         if (g !== generation.current) return;
-        const e = expected.current;
-        if (e && !r.some((x) => x.id === e.run.id) && e.tries < 10) { e.tries++; setRuns([e.run, ...r]); next(500); return; }
-        expected.current = null;
         setRuns(r); setError(null); next(r.some(busy) ? 2000 : 15000);
       },
       (err: Error) => { if (g === generation.current) { setError(err.message); next(15000); } },
@@ -33,7 +28,6 @@ export function useRuns(): { runs: RunSummary[] | null; error: string | null; re
   const expect = useCallback((d: RunDetail) => {
     const run: RunSummary = { id: d.id, method_id: d.method_id, method_version: d.method_version, label: d.label, created_at: d.created_at, parameters_sha256: d.parameters_sha256, input_count: d.inputs.length, job_states: { queued: d.jobs.length } };
     details.set(d.id, d);
-    expected.current = { run, tries: 0 };
     setRuns((r) => [run, ...(r ?? []).filter((x) => x.id !== d.id)]);
     refresh();
   }, [refresh]);
@@ -63,12 +57,28 @@ export async function fetchRunDetail(id: string): Promise<RunDetail> {
   return r;
 }
 
-export type SubmitResult = { ok: true; run: RunDetail } | { ok: false; fieldErrors: Map<string, string>; message: string };
+export type Rejection = { ok: false; fieldErrors: Map<string, string>; message: string };
+export type SubmitResult = { ok: true; run: RunDetail } | Rejection;
+export type EstimateResult = { ok: true; estimate: RunEstimate } | Rejection;
+
+const post = (path: string, req: RunRequest) =>
+  fetch(`/api${path}`, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(req) });
 
 /** POST /api/runs. A 422 response maps each error to its parameter path, for example "search.maximum_period". */
 export async function submitRun(req: RunRequest): Promise<SubmitResult> {
-  const res = await fetch("/api/runs", { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(req) });
+  const res = await post("/runs", req);
   if (res.status === 201) return { ok: true, run: (await res.json()) as RunDetail };
+  return rejection(res);
+}
+
+/** POST /api/runs/estimate: the same checks as POST /api/runs, and the work estimate. It writes nothing. */
+export async function estimateRun(req: RunRequest): Promise<EstimateResult> {
+  const res = await post("/runs/estimate", req);
+  if (res.ok) return { ok: true, estimate: (await res.json()) as RunEstimate };
+  return rejection(res);
+}
+
+async function rejection(res: Response): Promise<Rejection> {
   const fieldErrors = new Map<string, string>();
   let message = `${res.status} ${res.statusText}`;
   try {

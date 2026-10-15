@@ -1,4 +1,16 @@
-/** Phase fold and bins for the fold plot. Times and periods are in days. Offsets are returned in hours. */
+/**
+ * Phase fold and bins for the fold plot (API rule fold-window/1). Times and periods are in days. Offsets are in hours.
+ * The API gives the same view in GET /api/runs/{run}/observations/{observation}/fold. This copy runs during a drag.
+ * vendor/api-vectors/fold.json holds the cases that both implementations pass.
+ */
+
+/** Half width of the fold window: three BLS durations, at least 3 h, at most half the period. */
+export function foldWindowHours(durationDays: number, periodDays: number): number {
+  return Math.min(Math.max(durationDays * 24 * 3, 3), 0.5 * periodDays * 24);
+}
+
+/** Bin width: 48 bins across the full window. */
+export const foldBinHours = (windowHours: number) => windowHours / 24;
 
 /** Time offset from the nearest event at t0 + n * period, in hours, in the range [-period/2, period/2). */
 export function offsetHours(t: number, t0: number, period: number): number {
@@ -8,11 +20,12 @@ export function offsetHours(t: number, t0: number, period: number): number {
   return ph * period * 24;
 }
 
-export interface Folded { x: Float32Array; y: Float32Array; n: number }
+// Float64: a float32 offset can move a point across a bin edge, and the bins then differ from the API.
+export interface Folded { x: Float64Array; y: Float64Array; n: number }
 
 /** Points within ±windowHours of an event. A range [t0, t1] limits the input times when it is given. */
 export function fold(time: Float64Array, flux: Float64Array, t0: number, period: number, windowHours: number, range: [number, number] | null): Folded {
-  const x = new Float32Array(time.length), y = new Float32Array(time.length);
+  const x = new Float64Array(time.length), y = new Float64Array(time.length);
   let n = 0;
   for (let i = 0; i < time.length; i++) {
     const t = time[i]!, f = flux[i]!;

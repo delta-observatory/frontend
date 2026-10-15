@@ -151,6 +151,23 @@ export interface RunRequest {
   label?: string;
 }
 
+/** POST /api/runs/estimate: the checked parameters and the work estimate (rule bls-grid/1). */
+export interface RunEstimate {
+  method: { id: string; version: number };
+  parameters: Record<string, unknown>;
+  observation_count: number;
+  estimate_reason: string | null;
+  estimate: {
+    rule: string;
+    trials: { min: number; max: number; total: number } | null;
+    limit: number;
+    over_limit: number;
+    seconds_per_trial: { median: number; jobs: number; source: string } | null;
+    worker_seconds: number | null;
+    items: { observation_id: string; baseline_days: number | null; trials: number | null; over_limit: boolean }[];
+  } | null;
+}
+
 /** A 422 response: one entry for each error. loc is the path in the request body. */
 export interface ValidationErrorBody { detail: { loc: (string | number)[]; msg: string }[] | string }
 

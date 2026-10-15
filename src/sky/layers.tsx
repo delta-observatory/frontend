@@ -1,7 +1,7 @@
 import { useThree } from "@react-three/fiber";
 import { useEffect, useMemo } from "react";
 import * as THREE from "three";
-import { displayStatus, type Target } from "../data/catalogue";
+import { statusOf, type Target } from "../data/catalogue";
 import { colors, sky } from "../theme";
 import { ecliptic, eqToVec, galacticEquator, GALACTIC, RAD, type Vec3 } from "./math";
 import { lineFragment, lineVertex, milkyWayFragment, milkyWayVertex, starFragment, starVertex, targetFragment, targetVertex } from "./shaders";
@@ -127,8 +127,8 @@ export function Targets({ targets, hover, selected, matches }: { targets: Target
     const n = placed.length, pos = new Float32Array(n * 3), shape = new Float32Array(n), col = new Float32Array(n * 3);
     placed.forEach((t, i) => {
       pos.set(t.v!, i * 3);
-      shape[i] = SHAPE[t.cls];
-      const c = new THREE.Color(STATUS_COLOR[displayStatus(t)]);
+      shape[i] = t.cls ? SHAPE[t.cls] : 0;
+      const c = new THREE.Color(STATUS_COLOR[statusOf(t)]);
       col.set([c.r, c.g, c.b], i * 3);
     });
     const g = new THREE.BufferGeometry();

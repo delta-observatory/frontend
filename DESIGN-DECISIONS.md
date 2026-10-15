@@ -27,8 +27,9 @@ Richard directs the visual style and the interaction design.
 | Keys | **/** search, **j** and **k** next and previous, **F** fly to target, **Esc** clear, **+** and **−** zoom. |
 | Star catalogue | XHIP, an extended Hipparcos compilation (VizieR V/137D), to magnitude 8: 41411 stars from the `d3-celestial` package. Stars to magnitude 6 show at a 110° field of view. Fainter stars fade in as the view zooms in, to magnitude 8 at 40°. |
 | Run controls | Desktop: the Run tab beside Details in the right column. Phone: the Run tab. The run name in the top bar opens it. |
-| Run form | Built from the method's parameter schema: units, defaults, limits, and cross-field rules. Changed values have an amber mark. Inputs: the selected target or all search matches. An estimate shows trial periods and worker time before the start. |
-| Active run | One run at a time supplies the sky colours, plots, and measurements. "Show results" selects it, and the browser remembers it. Without a choice, the run with the most complete jobs shows. A run that finishes does not replace the shown run. |
+| Run form | Built from the method's parameter schema: units, defaults, limits, and cross-field rules. Changed values have an amber mark. Inputs: the selected target or all search matches. The API estimate shows trial periods and worker time before the start. |
+| Status colours | The API rule `period-agreement/1` sets each marker colour. Its thresholds are display bins, not validation criteria. |
+| Active run | One run at a time supplies the sky colours, plots, and measurements. "Show results" selects it, and the browser remembers it. Without a choice, the API rule `default-run/1` selects the run with the most complete jobs. The newest run wins a tie. A run that finishes does not replace the shown run. |
 | Tools | React, Three.js through React Three Fiber, TypeScript, and Vite. The sky, the targets, and the plots render with WebGL. Tables, the inspector, and forms are React. |
 | API access | In development, a Vite proxy sends `/api` to `http://10.0.0.47:30870`. The deployed build uses NodePort 30871 and its own proxy to the API service. CORS stays disabled. |
 | Shape | Sharp corners on all panels, controls, and markers that have a box shape. |

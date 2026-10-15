@@ -1,5 +1,5 @@
 import { useEffect, useRef, type MouseEvent, type RefObject } from "react";
-import { displayStatus, type Target } from "../data/catalogue";
+import { statusOf, type Target } from "../data/catalogue";
 import { motion } from "../motion";
 import { colors } from "../theme";
 import { camera, useCamera } from "./camera";
@@ -86,8 +86,8 @@ export function AllSky({ targets, stars, selected, matches, sky }: Props) {
       if (t.ra == null || t.dec == null) continue;
       const p = H.fwd(t.ra, t.dec), sel = t.id === selected;
       ctx.globalAlpha = sel || matches.has(t.id) ? 1 : 0.25;
-      ctx.strokeStyle = sel ? colors.textStrong : STATUS[displayStatus(t)]; ctx.lineWidth = 1.2;
-      marker(ctx, t.cls, p[0], p[1], sel ? 4 : 2.5);
+      ctx.strokeStyle = sel ? colors.textStrong : STATUS[statusOf(t)]; ctx.lineWidth = 1.2;
+      marker(ctx, t.cls ?? "planet_host", p[0], p[1], sel ? 4 : 2.5);
     }
     ctx.globalAlpha = 1;
     ctx.fillStyle = colors.dim; ctx.font = "10px 'IBM Plex Mono'"; ctx.textAlign = "left";

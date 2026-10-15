@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import type { Evidence } from "../data/evidence";
 import { colors } from "../theme";
-import { bins, fold, offsetHours } from "./fold";
+import { bins, fold, foldBinHours, foldWindowHours, offsetHours } from "./fold";
 import { clipPlot, drawAxes, drawLegend, drawReadout, type Frame } from "./surface";
 import { usePlot } from "./usePlot";
 
@@ -15,7 +15,7 @@ export function Fold({ ev, brush, cursorT, foldP }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const { surface, size } = usePlot(box);
   const best = ev.summary.best, P = foldP ?? best.period, T0 = best.transit_time, display = foldP != null;
-  const win = Math.min(Math.max(best.duration * 24 * 3, 3), 0.5 * P * 24), binH = win / 24;
+  const win = foldWindowHours(best.duration, P), binH = foldBinHours(win);
 
   const folded = useMemo(() => fold(ev.prepared.time!, ev.prepared.flattened_flux!, T0, P, win, brush), [ev, T0, P, win, brush]);
   const binned = useMemo(() => bins(folded, win, binH), [folded, win, binH]);

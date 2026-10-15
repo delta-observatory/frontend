@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { Catalogue } from "./Catalogue";
-import { buildTargets, defaultRun, loadBase, loadRun, type Base, type RunData } from "./data/catalogue";
+import { getObservation, loadBase, loadDefaultRun, loadTargets, type Base, type Target } from "./data/catalogue";
+import type { ObservationDetail, RunSummary } from "./api/types";
 import { RunPanel } from "./runs/RunPanel";
 import { useRuns } from "./runs/useRuns";
 import { loadEvidence, prefetchEvidence, type Evidence } from "./data/evidence";
@@ -36,7 +37,11 @@ export function App() {
   // The run that the sky, plots, and measurements show. This browser remembers the choice.
   const [activeRunId, setActiveRunIdState] = useState<string | null>(() => { try { return localStorage.getItem("delta.activeRun"); } catch { return null; } });
   const setActiveRunId = (id: string) => { setActiveRunIdState(id); try { localStorage.setItem("delta.activeRun", id); } catch { /* The choice stays for this page only. */ } };
-  const [runData, setRunData] = useState<RunData | null>(null);
+  const [targets, setTargets] = useState<Target[]>([]);
+  const [targetsLoadMs, setTargetsLoadMs] = useState<number | null>(null);
+  // Undefined until the API answers. Null when no analysis run has a complete job.
+  const [defaultRun, setDefaultRun] = useState<RunSummary | null | undefined>(undefined);
+  const [observation, setObservation] = useState<ObservationDetail | null>(null);
   const [side, setSide] = useState<"details" | "run">("details");
   const [error, setError] = useState<string | null>(null);
   const [stars, setStars] = useState<StarColumns | null>(null);
@@ -71,35 +76,37 @@ export function App() {
     return () => clearInterval(id);
   }, [firstSky]);
 
-  // The active run: the choice in the run panel, or the newest analysis run with complete jobs.
+  // Without a remembered choice, the API selects the run (rule default-run/1).
+  useEffect(() => {
+    if (!base) return;
+    loadDefaultRun(base.dataset?.id ?? null).then(setDefaultRun, (e: Error) => setError(e.message));
+  }, [base]);
+  // The active run: the choice in the run panel, or the API default.
   const activeRun = useMemo(() => {
     if (!runs || !base) return null;
-    return runs.find((r) => r.id === activeRunId) ?? defaultRun(runs, base.methods);
-  }, [runs, base, activeRunId]);
+    return runs.find((r) => r.id === activeRunId) ?? (defaultRun ? runs.find((r) => r.id === defaultRun.id) ?? defaultRun : null);
+  }, [runs, base, activeRunId, defaultRun]);
   // Keep the first default. A run that completes later does not replace the results on screen.
   useEffect(() => { if (activeRun && activeRun.id !== activeRunId) setActiveRunIdState(activeRun.id); }, [activeRunId, activeRun]);
   // Results reload when the job states of the active run change, so a running run fills in.
   const runKey = activeRun ? `${activeRun.id}:${JSON.stringify(activeRun.job_states)}` : "";
+  // Targets, positions, values, and statuses come from GET /api/targets for the active run.
   useEffect(() => {
-    if (!activeRun) { setRunData(null); return; }
+    if (!base || runs == null || (activeRunId == null && defaultRun === undefined)) return;
     let live = true;
-    loadRun(activeRun).then((r) => { if (live) setRunData(r); }, (e: Error) => { if (live) setError(e.message); });
+    loadTargets(activeRun?.id ?? null, base.dataset?.id ?? null).then(
+      (r) => { if (live) { setTargets(r.targets); setTargetsLoadMs(r.loadMs); } },
+      (e: Error) => { if (live) setError(e.message); });
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [runKey]);
-  const data = useMemo(() => (base && runData && runData.run.id === activeRun?.id ? { observations: base.observations, jobs: runData.jobs } : null), [base, runData, activeRun?.id]);
-  const targets = useMemo(() => (base ? buildTargets(base, runData) : []), [base, runData]);
+  }, [base, runKey]);
+  const runId = activeRun?.id ?? null;
   const targetsById = useMemo(() => new Map(targets.map((t) => [t.id, t])), [targets]);
   const method = activeRun && base ? base.methods.get(`${activeRun.method_id}/${activeRun.method_version}`) ?? null : base ? [...base.methods.values()].find((m) => m.kind === "analysis") ?? null : null;
-  // Worker time for each trial period, measured in the active run.
-  const rate = useMemo(() => {
-    if (!runData) return null;
-    const r = [...runData.jobs.values()].map((j) => (j.resources?.elapsed_seconds ?? NaN) / Number((j.diagnostics as { grid_trials?: number } | null)?.grid_trials ?? NaN)).filter(Number.isFinite).sort((a, b) => a - b);
-    return r.length ? { secondsPerTrial: r[Math.floor(r.length / 2)]!, runId: runData.run.id } : null;
-  }, [runData]);
   const showRun = (id: string) => { setActiveRunId(id); setEvidence(null); };
   const search = useMemo(() => parseSearch(query, cls), [query, cls]);
-  const rows = useMemo(() => targets.filter(search.test).sort((a, b) => (b.snr ?? -1) - (a.snr ?? -1)), [targets, search]);
+  // The API order (depth S/N, highest first) stays. The search only removes rows.
+  const rows = useMemo(() => targets.filter(search.test), [targets, search]);
   const matches = useMemo(() => new Set(rows.map((t) => t.id)), [rows]);
   const current = targets.find((t) => t.id === selected) ?? null;
 
@@ -110,14 +117,24 @@ export function App() {
     if (t?.v) camera.flyTo(t.v, motion.get() === "animated");
   };
 
+  // The observation record of the selected target, for the inspector.
+  useEffect(() => {
+    if (!selected) { setObservation(null); return; }
+    let live = true;
+    getObservation(selected).then((o) => { if (live) setObservation(o); }, () => {});
+    return () => { live = false; };
+  }, [selected]);
+
   // Loads the result artifacts of the selected target. A newer selection replaces an older load.
   useEffect(() => {
-    if (!selected || !data) return;
+    if (!selected || !runId) return;
     let live = true;
     setEvError(null);
-    loadEvidence(selected, data).then((ev) => { if (live) setEvidence(ev); }, (e: Error) => { if (live) setEvError(e.message); });
+    loadEvidence(selected, runId).then((ev) => { if (live) setEvidence(ev); }, (e: Error) => { if (live) setEvError(e.message); });
     return () => { live = false; };
-  }, [selected, data]);
+    // The run key reloads a target whose job finishes while the run is shown.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, runId, runKey]);
 
   // Time from a target change to the first frame with its plots.
   useEffect(() => {
@@ -126,22 +143,22 @@ export function App() {
     requestAnimationFrame(() => requestAnimationFrame(() => { setChangeMs(performance.now() - t0); changeStart.current = null; }));
   }, [evidence]);
   // During a load, the plots keep the previous result, dim and labelled, so that the workbench does not go blank.
-  const fresh = evidence && evidence.observation.id === selected ? evidence : null;
+  const fresh = evidence && evidence.observation.id === selected && evidence.runId === runId ? evidence : null;
   const shownTarget = evidence ? targets.find((t) => t.id === evidence.observation.id) ?? null : null;
 
   // Loads in advance: the next and previous rows after each selection.
   useEffect(() => {
-    if (!data || !fresh) return;
+    if (!runId || !fresh) return;
     const i = rows.findIndex((t) => t.id === fresh.observation.id);
-    for (const t of [rows[i + 1], rows[i - 1]]) if (t) prefetchEvidence(t.id, data);
-  }, [data, fresh, rows]);
+    for (const t of [rows[i + 1], rows[i - 1]]) if (t?.jobState === "complete") prefetchEvidence(t.id, runId);
+  }, [runId, fresh, rows]);
 
   // Loads in advance when the pointer rests on a marker or a row for 120 ms.
   useEffect(() => {
-    if (!data || !hover) return;
-    const id = setTimeout(() => prefetchEvidence(hover, data), 120);
+    if (!runId || !hover || targetsById.get(hover)?.jobState !== "complete") return;
+    const id = setTimeout(() => prefetchEvidence(hover, runId), 120);
     return () => clearTimeout(id);
-  }, [data, hover]);
+  }, [runId, hover, targetsById]);
 
   // Keys: / search, j and k next and previous, f turn to the selection, + and − zoom.
   useEffect(() => {
@@ -181,8 +198,8 @@ export function App() {
 
   const run = activeRun;
   const runPanel = base && method ? (
-    <RunPanel method={method} base={base} runs={runs} activeRunId={activeRun?.id ?? null} selected={current} matches={rows} targetsById={targetsById}
-      rate={rate} onShow={showRun} refreshRuns={refreshRuns} onStartedRun={expectRun} />
+    <RunPanel method={method} runs={runs} activeRunId={activeRun?.id ?? null} selected={current} matches={rows} targetsById={targetsById}
+      onShow={showRun} refreshRuns={refreshRuns} onStartedRun={expectRun} />
   ) : <div className="empty">Loading…</div>;
   const sky = WEBGL.ok ? (
     <SkyBoundary>
@@ -200,7 +217,7 @@ export function App() {
     </div>
   );
   const inspector = current
-    ? <Inspector target={current} observation={base?.observations.get(current.id) ?? null} ev={fresh} method={method} run={activeRun} loading={!fresh && !evError} error={evError} changeMs={changeMs} />
+    ? <Inspector target={current} observation={observation?.id === current.id ? observation : null} ev={fresh} method={method} run={activeRun} loading={!fresh && !evError} error={evError} changeMs={changeMs} />
     : <div className="empty">No target selected.</div>;
   const motionButton = <button className="seg toggle" onClick={() => motion.set(mode === "animated" ? "reduced" : "animated")} title="Reduced motion removes camera animation">motion <b>{mode}</b></button>;
 
@@ -261,7 +278,7 @@ export function App() {
         <span className="seg">dataset <b>{base?.dataset?.id ?? "—"}</b> · <b>{base?.dataset?.observation_counts.ready ?? "—"}</b> ready</span>
         <button className="seg run-seg" onClick={() => setSide("run")} title="Open the run panel">run <b>{run ? run.label || run.id.slice(0, 8) : "—"}</b> · {run ? `${run.method_id} v${run.method_version}` : "no analysis run"} · <b>{run ? `${run.job_states.complete ?? 0}/${run.input_count}` : "—"}</b> complete</button>
         <span className="seg">api <b className={base ? "ok" : error ? "bad" : ""}>{base ? base.health.status : error ? "error" : "…"}</b></span>
-        <span className="seg perf">catalogue {base ? `${base.loadMs.toFixed(0)} ms` : "…"} · first sky {firstSky != null ? `${firstSky.toFixed(0)} ms` : "…"}</span>
+        <span className="seg perf">catalogue {base && targetsLoadMs != null ? `${(base.loadMs + targetsLoadMs).toFixed(0)} ms` : "…"} · first sky {firstSky != null ? `${firstSky.toFixed(0)} ms` : "…"}</span>
         {motionButton}
         <span className="tabs"><span className="on">SKY</span><span>DATASETS</span><span>ANALYSIS</span><span>EVIDENCE</span></span>
       </div>

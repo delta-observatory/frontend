@@ -1,19 +1,16 @@
-import { Fragment, useMemo, useState } from "react";
-import type { MethodInfo, RunDetail, RunSummary } from "../api/types";
-import type { Base, Target } from "../data/catalogue";
-import { blsTrials, check, failedConstraints, fields, getAt, parse, setAt, toText, type Field } from "./params";
-import { cancelQueued, submitRun, useRunDetail } from "./useRuns";
+import { Fragment, useEffect, useMemo, useState } from "react";
+import type { MethodInfo, RunDetail, RunEstimate, RunSummary } from "../api/types";
+import type { Target } from "../data/catalogue";
+import { check, failedConstraints, fields, getAt, parse, setAt, toText, type Field } from "./params";
+import { cancelQueued, estimateRun, submitRun, useRunDetail } from "./useRuns";
 
 interface Props {
   method: MethodInfo;
-  base: Base;
   runs: RunSummary[] | null;
   activeRunId: string | null;
   selected: Target | null;
   matches: Target[];
   targetsById: Map<string, Target>;
-  /** Measured worker time for each trial period, from the active run. */
-  rate: { secondsPerTrial: number; runId: string } | null;
   onShow: (runId: string) => void;
   refreshRuns: () => void;
   onStartedRun: (run: RunDetail) => void;
@@ -64,19 +61,20 @@ function RunForm(p: Props & { onStarted: (run: RunDetail) => void }) {
   const errorOf = (k: string) => parseErrors.get(k) ?? rangeErrors.get(k) ?? (ruleByPath.has(k) ? `rule: ${ruleByPath.get(k)}` : null) ?? serverErrors.get(k) ?? null;
   const blocked = parseErrors.size + rangeErrors.size + ruleErrors.length > 0 || inputs.length === 0;
 
-  // Work estimate from the period grid of each input light curve and the measured rate.
-  const estimate = useMemo(() => {
-    const s = (params.search ?? {}) as Record<string, unknown>;
-    const durations = (s.duration_days as number[] | undefined) ?? [];
-    const trials = inputs.map((t) => {
-      const o = p.base.observations.get(t.id);
-      return o ? blsTrials(o.time_stop - o.time_start, Number(s.minimum_period), Number(s.maximum_period), durations, Number(s.frequency_factor)) : NaN;
-    }).filter(Number.isFinite);
-    if (!trials.length) return null;
-    const limit = Number(s.maximum_grid_trials);
-    const total = trials.reduce((a, b) => a + b, 0);
-    return { min: Math.min(...trials), max: Math.max(...trials), over: trials.filter((n) => n > limit).length, limit, seconds: p.rate ? total * p.rate.secondsPerTrial : null };
-  }, [params, inputs, p.base, p.rate]);
+  // Work estimate and authoritative checks from POST /api/runs/estimate, 0.3 s after the last change.
+  const [estimate, setEstimate] = useState<RunEstimate["estimate"]>(null);
+  const requestKey = JSON.stringify([p.method.id, p.method.version, params, inputs.map((t) => t.id)]);
+  useEffect(() => {
+    if (blocked) { setEstimate(null); return; }
+    let live = true;
+    const id = window.setTimeout(() => {
+      estimateRun({ method: { id: p.method.id, version: p.method.version }, parameters: params, observation_ids: inputs.map((t) => t.id) }).then(
+        (r) => { if (!live) return; if (r.ok) { setEstimate(r.estimate.estimate); setServerErrors(new Map()); } else { setEstimate(null); setServerErrors(r.fieldErrors); } },
+        () => { if (live) setEstimate(null); });
+    }, 300);
+    return () => { live = false; clearTimeout(id); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestKey, blocked]);
 
   const edit = (f: Field, t: string) => {
     setText({ ...text, [f.key]: t });
@@ -101,7 +99,7 @@ function RunForm(p: Props & { onStarted: (run: RunDetail) => void }) {
     finally { setBusy(false); }
   };
 
-  const cadence = p.selected ? p.base.observations.get(p.selected.id)?.cadence_seconds ?? 120 : 120;
+  const cadence = p.selected?.cadence ?? 120;
   let lastGroup: string | null | undefined;
   return (
     <>
@@ -146,11 +144,11 @@ function RunForm(p: Props & { onStarted: (run: RunDetail) => void }) {
           );
         })}
       </div>
-      {estimate && (
-        <div className={`estimate${estimate.over ? " warn" : ""}`}>
-          <span>{inputs.length} job{inputs.length === 1 ? "" : "s"} · {estimate.min === estimate.max ? estimate.min.toLocaleString("en-US") : `${estimate.min.toLocaleString("en-US")}–${estimate.max.toLocaleString("en-US")}`} trial periods each (estimate) · limit {estimate.limit.toLocaleString("en-US")}</span>
-          {estimate.seconds != null && <span>≈ {duration(estimate.seconds)} of worker time, from the measured rate of run {p.rate!.runId.slice(0, 8)}</span>}
-          {estimate.over > 0 && <span className="err">{estimate.over} light curve{estimate.over === 1 ? "" : "s"} exceed the trial limit. The worker stops those jobs before the search.</span>}
+      {estimate && estimate.trials && (
+        <div className={`estimate${estimate.over_limit ? " warn" : ""}`}>
+          <span>{inputs.length} job{inputs.length === 1 ? "" : "s"} · {estimate.trials.min === estimate.trials.max ? estimate.trials.min.toLocaleString("en-US") : `${estimate.trials.min.toLocaleString("en-US")}–${estimate.trials.max.toLocaleString("en-US")}`} trial periods each (estimate) · limit {estimate.limit.toLocaleString("en-US")}</span>
+          {estimate.worker_seconds != null && estimate.seconds_per_trial && <span>≈ {duration(estimate.worker_seconds)} of worker time, from the median rate of {estimate.seconds_per_trial.jobs} measured job{estimate.seconds_per_trial.jobs === 1 ? "" : "s"}</span>}
+          {estimate.over_limit > 0 && <span className="err">{estimate.over_limit} light curve{estimate.over_limit === 1 ? "" : "s"} exceed the trial limit. The worker stops those jobs before the search.</span>}
         </div>
       )}
       {message && <div className={serverErrors.size || message.startsWith("4") || message.startsWith("5") ? "error-inline" : "ok-inline"}>{message}</div>}

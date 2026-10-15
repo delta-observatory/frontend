@@ -4,7 +4,7 @@ import { parseSearch } from "./search";
 
 const t = (over: Partial<Target>): Target => ({
   id: "x", tic: "TIC:1", sector: 2, cls: "planet_host", name: null, refPeriod: null, ra: 0, dec: 0, v: [1, 0, 0],
-  tmag: 9, period: 1, depth: 0.01, snr: 50, relErr: null, ...over,
+  tmag: 9, period: 1, depth: 0.01, snr: 50, relErr: null, status: null, jobState: null, cadence: 120, ...over,
 });
 
 describe("parseSearch", () => {

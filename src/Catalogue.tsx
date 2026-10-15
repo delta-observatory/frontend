@@ -1,5 +1,5 @@
 import { useEffect, useRef, type RefObject } from "react";
-import { displayStatus, type Target } from "./data/catalogue";
+import { statusOf, type Target } from "./data/catalogue";
 import type { ClassFilter } from "./data/search";
 
 const CLASS = { planet_host: "host", no_known_planet: "none", eclipsing_binary: "EB" };
@@ -41,11 +41,11 @@ export function Catalogue({ rows, total, hover, selected, query, cls, errors, in
           </thead>
           <tbody ref={body} onMouseLeave={() => onHover(null)}>
             {rows.map((t) => (
-              <tr key={t.id} className={`st-${displayStatus(t)}${t.id === selected ? " sel" : t.id === hover ? " hov" : ""}`} onMouseEnter={() => onHover(t.id)} onClick={() => onSelect(t.id)}>
-                <td><i className={`mk mk-${t.cls}`} /></td>
+              <tr key={t.id} className={`st-${statusOf(t)}${t.id === selected ? " sel" : t.id === hover ? " hov" : ""}`} onMouseEnter={() => onHover(t.id)} onClick={() => onSelect(t.id)}>
+                <td><i className={`mk mk-${t.cls ?? "planet_host"}`} /></td>
                 <td>{t.tic.replace("TIC:", "")}</td>
                 <td className="nm">{t.name ?? "—"}</td>
-                <td className="c-cls">{CLASS[t.cls]}</td>
+                <td className="c-cls">{t.cls ? CLASS[t.cls] : "—"}</td>
                 <td className="n c-s">{String(t.sector).padStart(2, "0")}</td>
                 <td className="n c-tmag">{t.tmag?.toFixed(2) ?? "—"}</td>
                 <td className="n">{t.refPeriod?.toFixed(4) ?? "—"}</td>
