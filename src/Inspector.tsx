@@ -1,4 +1,5 @@
 import { Fragment } from "react";
+import { denied, useAccess } from "./api/access";
 import type { Measurement, MethodInfo, ObservationDetail, RunSummary } from "./api/types";
 import type { Target } from "./data/catalogue";
 import type { Evidence } from "./data/evidence";
@@ -56,6 +57,7 @@ interface Props {
 
 /** Values, measurements, checks, and provenance of the selected target. */
 export function Inspector({ target: t, observation, ev, method, run, loading, error, changeMs, onNewCandidate }: Props) {
+  const refused = denied(useAccess(), "records");
   const f = (x: number | null | undefined, d: number) => (x == null ? "—" : x.toFixed(d));
   const h = observation?.header ?? ev?.observation.header ?? {};
   const num = (k: string) => (typeof h[k] === "number" ? (h[k] as number) : null);
@@ -79,7 +81,7 @@ export function Inspector({ target: t, observation, ev, method, run, loading, er
         <>
           <h3>Search · role search</h3>
           <Measurements list={search} />
-          {onNewCandidate && <div className="btns"><button onClick={onNewCandidate}>New candidate from this result…</button></div>}
+          {onNewCandidate && <div className="btns"><button disabled={refused != null} title={refused ?? undefined} onClick={onNewCandidate}>New candidate from this result…</button></div>}
           <h3>Reference comparison · guided</h3>
           {ev.planet && ref.length ? (
             <>

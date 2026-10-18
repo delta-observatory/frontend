@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useState, type ReactNode } from "react";
+import { denied, useAccess } from "../api/access";
 import { getJson } from "../api/client";
 import { postJson, records, type AgentTask, type Campaign, type CandidateDetail, type Ref, type ResolvedRef, type WriteResult } from "../api/records";
 import type { Measurement, MethodInfo } from "../api/types";
@@ -31,6 +32,7 @@ interface Props {
 /** The Records tab: one candidate or one agent task, with its history and the write forms. */
 export function RecordsPanel(p: Props) {
   const s = p.selection;
+  const refused = denied(useAccess(), "records");
   return (
     <div className="scroll"><div className="ibody records">
       {s?.kind === "candidate" && <CandidateView key={s.id} id={s.id} {...p} />}
@@ -39,7 +41,8 @@ export function RecordsPanel(p: Props) {
       {s == null && (
         <>
           <div className="empty">No record selected. Select a candidate or an agent task in the catalogue panel, or in the EVIDENCE workspace.</div>
-          <div className="btns"><button className="pri" disabled={!p.evidence} onClick={() => p.onSelect({ kind: "new-candidate" })}>New candidate from the shown result…</button><NewTaskButton {...p} /></div>
+          <div className="btns"><button className="pri" disabled={!p.evidence || refused != null} title={refused ?? undefined} onClick={() => p.onSelect({ kind: "new-candidate" })}>New candidate from the shown result…</button><NewTaskButton {...p} /></div>
+          {refused && <div className="small">{refused}</div>}
         </>
       )}
     </div></div>
@@ -49,6 +52,7 @@ export function RecordsPanel(p: Props) {
 // ---------- Candidate ----------
 
 function CandidateView(p: Props & { id: string }) {
+  const refused = denied(useAccess(), "records");
   const [d, setD] = useState<CandidateDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
@@ -97,12 +101,13 @@ function CandidateView(p: Props & { id: string }) {
       <h3>History · newest first · records do not change</h3>
       <History d={d} />
       <div className="btns">
-        <button className={form === "assess" ? "pri" : ""} onClick={() => setForm(form === "assess" ? null : "assess")}>Assess…</button>
-        <button className={form === "decide" ? "pri" : ""} onClick={() => setForm(form === "decide" ? null : "decide")}>Decide…</button>
-        <button className={form === "note" ? "pri" : ""} onClick={() => setForm(form === "note" ? null : "note")}>Note…</button>
-        {d.campaign_id && <button className={form === "task" ? "pri" : ""} onClick={() => setForm(form === "task" ? null : "task")}>Task…</button>}
+        <button className={form === "assess" ? "pri" : ""} disabled={refused != null} title={refused ?? undefined} onClick={() => setForm(form === "assess" ? null : "assess")}>Assess…</button>
+        <button className={form === "decide" ? "pri" : ""} disabled={refused != null} title={refused ?? undefined} onClick={() => setForm(form === "decide" ? null : "decide")}>Decide…</button>
+        <button className={form === "note" ? "pri" : ""} disabled={refused != null} title={refused ?? undefined} onClick={() => setForm(form === "note" ? null : "note")}>Note…</button>
+        {d.campaign_id && <button className={form === "task" ? "pri" : ""} disabled={refused != null} title={refused ?? undefined} onClick={() => setForm(form === "task" ? null : "task")}>Task…</button>}
         <button className="right" onClick={() => p.onExport({ kind: "candidate", id: d.id, label: d.label ?? short(d.id) })}>Export candidate…</button>
       </div>
+      {refused && <div className="small">{refused}</div>}
       {form === "assess" && <AssessForm d={d} onDone={written} />}
       {form === "decide" && <DecideForm d={d} onDone={written} />}
       {form === "note" && <NoteForm subjects={[{ kind: "candidate", id: d.id }]} onDone={written} />}
@@ -321,11 +326,12 @@ function NewCandidate(p: Props) {
 
 function NewTaskButton(p: Props) {
   const [open, setOpen] = useState(false);
+  const refused = denied(useAccess(), "records");
   const live = [...p.campaigns.values()].filter((c) => !c.closed_at);
   if (!live.length) return null;
   return (
     <>
-      <button onClick={() => setOpen(!open)}>New task…</button>
+      <button disabled={refused != null} title={refused ?? undefined} onClick={() => setOpen(!open)}>New task…</button>
       {open && <TaskForm campaigns={p.campaigns} campaignId={live[0]!.id} inputs={[]} onDone={(id) => { setOpen(false); p.onChanged(); p.onSelect({ kind: "task", id }); }} />}
     </>
   );
@@ -387,6 +393,7 @@ export function CampaignBlock({ c }: { c: Campaign }) {
 
 function TaskView(p: Props & { task: AgentTask | null }) {
   const t = p.task;
+  const refused = denied(useAccess(), "records");
   const [cancel, setCancel] = useState(false);
   const [reason, setReason] = useState("");
   const w = useWrite<unknown>();
@@ -430,7 +437,7 @@ function TaskView(p: Props & { task: AgentTask | null }) {
       )}
       {(t.state === "queued" || t.state === "claimed") && (
         <div className="btns">
-          <button onClick={() => setCancel(!cancel)}>Cancel task…</button>
+          <button disabled={refused != null} title={refused ?? undefined} onClick={() => setCancel(!cancel)}>Cancel task…</button>
         </div>
       )}
       {cancel && (

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { Catalogue, type Segment } from "./Catalogue";
+import { accessOf, AccessContext, useAccess, type Me } from "./api/access";
 import { getJson, session } from "./api/client";
 import type { Campaign, Candidate, CandidateDetail } from "./api/records";
 import { ComparePanel, CompareSide, useComparison } from "./compare/ComparePanel";
@@ -49,9 +50,16 @@ function useNow(on: boolean): number {
   return now;
 }
 
+/** GET /me gives the client and its permissions. The context disables controls that the API would refuse. */
 export function App() {
+  const [me, setMe] = useState<Me | null>(null);
+  useEffect(() => { getJson<Me>("/me").then(setMe, () => {}); }, []);
+  const access = useMemo(() => accessOf(me), [me]);
+  return <AccessContext.Provider value={access}><Workbench me={me} /></AccessContext.Provider>;
+}
+
+function Workbench({ me }: { me: Me | null }) {
   const [base, setBase] = useState<Base | null>(null);
-  const [me, setMe] = useState<{ name: string; kind: string } | null>(null);
   const { runs, refresh: refreshRuns, expect: expectRun } = useRuns();
   // The run that the sky, plots, and measurements show. This browser remembers the choice.
   const [activeRunId, setActiveRunIdState] = useState<string | null>(() => { try { return localStorage.getItem("delta.activeRun"); } catch { return null; } });
@@ -97,7 +105,6 @@ export function App() {
 
   useEffect(() => {
     loadBase().then(setBase, (e: Error) => setError(e.message));
-    getJson<{ name: string; kind: string }>("/me").then(setMe, () => {});
     getStatic<StarColumns>("/sky/stars.json").then(setStars, (e: Error) => setError(e.message));
     getStatic<{ lines: { points: number[] }[] }>("/sky/constellations.json").then((c) => setLines(c.lines.map((l) => l.points)), (e: Error) => setError(e.message));
   }, []);
@@ -330,7 +337,9 @@ export function App() {
       onExport={(id) => setExporting({ kind: "run", id, label: id.slice(0, 8) })} />
   );
   const exportDialog = exporting && <ExportDialog subject={exporting} onClose={() => setExporting(null)} />;
-  const whoButton = <button className="seg toggle who" onClick={() => session.set(null)} title="Sign out of this browser">{me ? me.name : "…"} · sign out</button>;
+  const access = useAccess();
+  const readOnly = access.known && !access.runs && !access.records;
+  const whoButton = <button className="seg toggle who" onClick={() => session.set(null)} title="Sign out of this browser">{me ? me.name : "…"}{readOnly ? " · read only" : ""} · sign out</button>;
   const motionButton = <button className="seg toggle" onClick={() => motion.set(mode === "animated" ? "reduced" : "animated")} title="Reduced motion removes camera animation">motion <b>{mode}</b></button>;
   const filtered = useMemo(() => filterCandidates(recordLists.candidates ?? [], candFilter, (c) => candidateTarget(c, targetsById)), [recordLists.candidates, candFilter, targetsById]);
   const writers = useMemo(() => [...new Set((recordLists.candidates ?? []).map((c) => c.actor.name))].sort(), [recordLists.candidates]);

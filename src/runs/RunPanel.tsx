@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
+import { canCancel, denied, useAccess } from "../api/access";
 import type { MethodInfo, RunDetail, RunEstimate, RunSummary } from "../api/types";
 import type { Target } from "../data/catalogue";
 import { check, failedConstraints, fields, getAt, parse, setAt, toText, type Field } from "./params";
@@ -52,6 +53,7 @@ function RunForm(p: Props & { onStarted: (run: RunDetail) => void }) {
   const [serverErrors, setServerErrors] = useState<Map<string, string>>(new Map());
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const refused = denied(useAccess(), "runs");
 
   const inputs = scope === "selected" ? (p.selected ? [p.selected] : []) : p.matches;
   const parseErrors = new Map<string, string>();
@@ -155,9 +157,10 @@ function RunForm(p: Props & { onStarted: (run: RunDetail) => void }) {
         </div>
       )}
       {message && <div className={serverErrors.size || message.startsWith("4") || message.startsWith("5") ? "error-inline" : "ok-inline"}>{message}</div>}
+      {refused && <div className="empty">{refused}</div>}
       <div className="run-actions">
         <button onClick={resetAll}>Reset all</button>
-        <button className="primary" disabled={blocked || busy} onClick={start}>{busy ? "Starting…" : `Start run · ${inputs.length} job${inputs.length === 1 ? "" : "s"}`}</button>
+        <button className="primary" disabled={blocked || busy || refused != null} title={refused ?? undefined} onClick={start}>{busy ? "Starting…" : `Start run · ${inputs.length} job${inputs.length === 1 ? "" : "s"}`}</button>
       </div>
     </>
   );
@@ -182,6 +185,8 @@ function RunRow({ run, method, active, open, targetsById, onToggle, onShow, refr
   const [note, setNote] = useState<string | null>(null);
   const queued = run.job_states.queued ?? 0, running = run.job_states.running ?? 0, done = run.input_count - queued - running;
   const retryable = (run.job_states.failed ?? 0) + (run.job_states.cancelled ?? 0);
+  const access = useAccess();
+  const cancellable = canCancel(access, run);
   const act = async (f: () => Promise<string>) => { try { setNote(await f()); } catch (e) { setNote((e as Error).message); } refreshRuns(); };
   const changed = detail ? fields(method.parameters_schema).filter((f) => !same(getAt(detail.parameters, f.path), getAt(method.defaults, f.path))) : [];
   return (
@@ -196,8 +201,8 @@ function RunRow({ run, method, active, open, targetsById, onToggle, onShow, refr
       </div>
       <div className="run-actions">
         {active ? <span className="run-active">Shown</span> : <button onClick={onShow} disabled={(run.job_states.complete ?? 0) === 0}>Show results</button>}
-        {queued + running > 0 && <button onClick={() => act(async () => { const r = await cancelRun(run.id); return `${r.cancelled} cancelled, ${r.was_running} of them running${r.note ? `. ${r.note}` : ""}`; })}>Cancel run</button>}
-        {retryable > 0 && queued + running === 0 && <button onClick={() => act(async () => { const r = await retryRun(run.id); onRetried(r); return `Retry run ${r.id.slice(0, 8)} with ${r.jobs.length} jobs`; })}>Retry failed and cancelled ({retryable})</button>}
+        {queued + running > 0 && cancellable && <button onClick={() => act(async () => { const r = await cancelRun(run.id); return `${r.cancelled} cancelled, ${r.was_running} of them running${r.note ? `. ${r.note}` : ""}`; })}>Cancel run</button>}
+        {retryable > 0 && queued + running === 0 && access.runs && <button onClick={() => act(async () => { const r = await retryRun(run.id); onRetried(r); return `Retry run ${r.id.slice(0, 8)} with ${r.jobs.length} jobs`; })}>Retry failed and cancelled ({retryable})</button>}
         <button onClick={onToggle}>{open ? "Hide jobs" : "Jobs"}</button>
         <button onClick={onCompare}>Compare with…</button>
         <button onClick={onExport}>Export…</button>
@@ -216,7 +221,7 @@ function RunRow({ run, method, active, open, targetsById, onToggle, onShow, refr
                     <td><span className={`state st-${j.state}`}>{j.state}</span></td>
                     <td className="n">{j.attempts}/{j.max_attempts}</td>
                     <td className="n">{secs == null ? "—" : `${secs.toFixed(1)} s`}</td>
-                    <td>{(j.state === "queued" || j.state === "running") && <button className="x" onClick={() => act(async () => { const r = await cancelJob(j.id); return r.was_running ? "Cancelled a running job. The worker stops it at its next lease extension." : "Cancelled a queued job."; })}>cancel</button>}</td>
+                    <td>{(j.state === "queued" || j.state === "running") && cancellable && <button className="x" onClick={() => act(async () => { const r = await cancelJob(j.id); return r.was_running ? "Cancelled a running job. The worker stops it at its next lease extension." : "Cancelled a queued job."; })}>cancel</button>}</td>
                   </tr>
                   {j.error && (j.state === "failed" || j.state === "inconclusive") && (
                     <tr className="job-err"><td colSpan={5}><b>{j.state} · {j.error.kind ?? "error"}</b> · {j.error.message ?? "message withheld"}</td></tr>

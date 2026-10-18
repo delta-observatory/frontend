@@ -57,6 +57,12 @@ The browser keeps the token in localStorage and sends it as `Authorization: Bear
 The top bar shows the client name. "sign out" removes the token. A 401 response also signs out.
 The frontend proxy adds no token. An agent on the same computer therefore cannot act as the signed-in person through port 30871.
 
+The permissions in `GET /api/me` decide which write controls are available. `src/api/access.ts` holds the rules.
+Without `run.submit`, the run form, retry, and cancellation are unavailable. Cancellation also needs the client's own run, or `admin`.
+Without `record.write`, the candidate, assessment, decision, note, and task controls are disabled. Each disabled control states the missing permission.
+A client with neither permission shows "read only" in the top bar.
+The display does not authorize anything. The API refuses each write without its permission.
+
 ## Development
 
 ```bash
