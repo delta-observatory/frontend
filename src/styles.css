@@ -390,3 +390,9 @@ tr.job-err b { color: var(--st-miss); font-weight: 500; }
 .compact .cmp-filter button { padding: 8px 10px; }
 .compact .axis { grid-template-columns: 62px 92px 1fr; }
 .compact .bud { grid-template-columns: 100px 1fr 110px; }
+
+/* Workbench message with the runs that hold the selected observation. */
+.runs-holding { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.runs-holding button { background: none; border: 1px solid #3a4758; color: var(--text); font: 11px var(--sans); padding: 4px 10px; min-height: 30px; cursor: pointer; text-align: left; }
+.runs-holding button b { color: var(--text-strong); font-weight: 500; }
+.compact .runs-holding button { min-height: 44px; }

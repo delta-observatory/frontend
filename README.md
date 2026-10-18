@@ -96,7 +96,7 @@ Research agents use the same API. Each value that the frontend shows comes from 
 | `GET /api/targets` | The target table, the sky markers, and the all-sky map: sky position, magnitude, cadence, labels, the active run's values, and the `period-agreement/1` status. |
 | `GET /api/runs/default` | The active run when the browser has no choice (rule `default-run/1`). |
 | `GET /api/observations/{id}` | Header, labels, and the light-curve artifact of the selected target. |
-| `GET /api/runs` | Runs with job states. |
+| `GET /api/runs` | Runs with job states. With `observation_id`, the runs that hold the selected observation: the workbench offers them when the shown run has no job for it. |
 | `GET /api/runs/{id}/results?observation_id=` | Measurements, artifacts, diagnostics, software, and resources of the selected target's job. |
 | `POST /api/runs/estimate` | The run form's work estimate and authoritative parameter check. |
 | `GET /api/methods` | Methods with their parameter schemas, defaults, cross-field rules, and scientific status. |
@@ -139,6 +139,7 @@ The backend owns these responses. The measurement fields follow `database/contra
 | `src/runs/params.ts` | Parameter form logic from a method schema: field checks and the cross-field rule grammar. `params.test.ts` tests it. |
 | `src/runs/useRuns.ts` | Run list refresh, run submission, and job cancellation. |
 | `src/runs/RunPanel.tsx` | Run form, run list, cancellation, and retry. |
+| `src/runs/RunsHolding.tsx` | Workbench message with buttons for the runs that hold the selected observation. |
 | `src/api/records.ts` | Types of the research records, campaigns, and the comparison, and the write helper. |
 | `src/records/` | Record tables, the Records tab and its forms, the vocabulary marks, and display helpers. `records.test.ts` tests the helpers. |
 | `src/compare/` | ANALYSIS workspace table, the Compare tab, and display helpers. |

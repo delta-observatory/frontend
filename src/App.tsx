@@ -22,6 +22,7 @@ import { parseSearch, type ClassFilter } from "./data/search";
 import { motion, useMotion } from "./motion";
 import { marks } from "./perf/frames";
 import { AllSky } from "./sky/AllSky";
+import { RunsHolding } from "./runs/RunsHolding";
 import { camera } from "./sky/camera";
 import type { StarColumns } from "./sky/layers";
 import { SkyBoundary, SkyUnavailable } from "./sky/SkyError";
@@ -373,7 +374,7 @@ export function App() {
                   </div>
                 )}
               </>
-            ) : <div className="empty">{evError ?? (current ? "Loading the result artifacts…" : "Select a target in Targets or on the sky.")}</div>}
+            ) : evError ? <RunsHolding message={evError} observationId={selected} onShow={showRun} /> : <div className="empty">{current ? "Loading the result artifacts…" : "Select a target in Targets or on the sky."}</div>}
           </div>
           <div className={tab === "details" ? "pane-fill details" : "hidden"}>{inspector}</div>
           <div className={tab === "run" ? "pane-fill details" : "hidden"}>{runPanel}</div>
@@ -459,7 +460,7 @@ export function App() {
               {status}
               {focusNote}
             </>
-          ) : <div className="empty">{evError ?? (current ? "Loading the result artifacts…" : "No target selected.")}</div>}
+          ) : evError ? <RunsHolding message={evError} observationId={selected} onShow={showRun} /> : <div className="empty">{current ? "Loading the result artifacts…" : "No target selected."}</div>}
         </div>
       )}
       <section className="panel inspector">
