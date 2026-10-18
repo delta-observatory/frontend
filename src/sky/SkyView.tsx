@@ -52,11 +52,13 @@ interface Props {
   matches: Set<string>;
   onHover: (id: string | null) => void;
   onSelect: (id: string) => void;
+  /** Observations that candidate records refer to. A dashed square marks them. */
+  flagged?: Set<string>;
 }
 
 const CLASS = { planet_host: "planet host", no_known_planet: "no known planet", eclipsing_binary: "eclipsing binary" };
 
-export function SkyView({ targets, stars, lines, hover, selected, matches, onHover, onSelect }: Props) {
+export function SkyView({ targets, stars, lines, hover, selected, matches, onHover, onSelect, flagged }: Props) {
   const wrap = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; y: number; x0: number; y0: number } | null>(null);
   const [tip, setTip] = useState<{ t: Target; x: number; y: number } | null>(null);
@@ -141,6 +143,7 @@ export function SkyView({ targets, stars, lines, hover, selected, matches, onHov
         <FrameProbe ready={targets.length > 0 && stars != null} />
       </Canvas>
       <SkyHud />
+      {flagged && flagged.size > 0 && <CandidateMarks targets={targets} flagged={flagged} wrap={wrap} />}
       <SelectionMark target={targets.find((t) => t.id === selected) ?? null} wrap={wrap} />
       {tip && (
         <div className="tip" style={{ left: tip.x + 14, top: tip.y + 10 }}>
@@ -167,6 +170,37 @@ function SkyHud() {
       <span className="hud-extra"><br /><span style={{ color: "rgba(240,166,64,.85)" }}>– – ecliptic</span>  <span style={{ color: "rgba(197,140,255,.85)" }}>– – galactic plane</span>  Milky Way: drawn model
       <br />frame p95 {ms(stats.intervalP95)} ms · render CPU p95 {ms(stats.renderP95)} ms</span>
     </div>
+  );
+}
+
+function useSize(wrap: RefObject<HTMLDivElement | null>) {
+  const [size, setSize] = useState({ w: 0, h: 0 });
+  useEffect(() => {
+    const el = wrap.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setSize({ w: el.clientWidth, h: el.clientHeight }));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [wrap]);
+  return size;
+}
+
+/** A dashed square at each target that has candidate records. It does not encode a status. */
+function CandidateMarks({ targets, flagged, wrap }: { targets: Target[]; flagged: Set<string>; wrap: RefObject<HTMLDivElement | null> }) {
+  const { basis, fov } = useCamera();
+  const size = useSize(wrap);
+  if (size.w === 0) return null;
+  const k = projectionScale(size.w, fov), boxes: [number, number, string][] = [];
+  for (const t of targets) {
+    if (!t.v || !flagged.has(t.id)) continue;
+    const p = project(t.v, basis, k), x = size.w / 2 + p.x, y = size.h / 2 + p.y;
+    if (p.theta > 2.6 || x < -12 || y < -12 || x > size.w + 12 || y > size.h + 12) continue;
+    boxes.push([x, y, t.id]);
+  }
+  return (
+    <svg className="cand-marks" width={size.w} height={size.h} aria-hidden="true">
+      {boxes.map(([x, y, id]) => <rect key={id} x={x - 10} y={y - 10} width={20} height={20} />)}
+    </svg>
   );
 }
 

@@ -47,10 +47,15 @@ function Measurements({ list }: { list: Measurement[] }) {
   );
 }
 
-interface Props { target: Target; observation: ObservationDetail | null; ev: Evidence | null; method: MethodInfo | null; run: RunSummary | null; loading: boolean; error: string | null; changeMs: number | null }
+interface Props {
+  target: Target; observation: ObservationDetail | null; ev: Evidence | null; method: MethodInfo | null; run: RunSummary | null;
+  loading: boolean; error: string | null; changeMs: number | null;
+  /** Opens the new-candidate form for this result. */
+  onNewCandidate?: () => void;
+}
 
 /** Values, measurements, checks, and provenance of the selected target. */
-export function Inspector({ target: t, observation, ev, method, run, loading, error, changeMs }: Props) {
+export function Inspector({ target: t, observation, ev, method, run, loading, error, changeMs, onNewCandidate }: Props) {
   const f = (x: number | null | undefined, d: number) => (x == null ? "—" : x.toFixed(d));
   const h = observation?.header ?? ev?.observation.header ?? {};
   const num = (k: string) => (typeof h[k] === "number" ? (h[k] as number) : null);
@@ -74,6 +79,7 @@ export function Inspector({ target: t, observation, ev, method, run, loading, er
         <>
           <h3>Search · role search</h3>
           <Measurements list={search} />
+          {onNewCandidate && <div className="btns"><button onClick={onNewCandidate}>New candidate from this result…</button></div>}
           <h3>Reference comparison · guided</h3>
           {ev.planet && ref.length ? (
             <>

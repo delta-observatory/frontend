@@ -1,4 +1,4 @@
-import { useEffect, useRef, type RefObject } from "react";
+import { useEffect, useRef, type ReactNode, type RefObject } from "react";
 import { statusOf, type Target } from "./data/catalogue";
 import type { ClassFilter } from "./data/search";
 
@@ -18,17 +18,36 @@ interface Props {
   onSelect: (id: string) => void;
   onQuery: (q: string) => void;
   onClass: (c: ClassFilter) => void;
+  /** The segments of the panel: targets, candidates, and agent tasks. Without it, the panel shows targets only. */
+  segments?: { value: Segment; counts: Record<Segment, number | null>; onChange: (s: Segment) => void; body: ReactNode };
 }
 
+export type Segment = "targets" | "candidates" | "tasks";
+const SEGMENTS: [Segment, string][] = [["targets", "Targets"], ["candidates", "Candidates"], ["tasks", "Tasks"]];
+
 /** Observation table over the sky, sorted by depth S/N. It lists only the targets that match the search. */
-export function Catalogue({ rows, total, hover, selected, query, cls, errors, input, onHover, onSelect, onQuery, onClass }: Props) {
+export function Catalogue({ rows, total, hover, selected, query, cls, errors, input, onHover, onSelect, onQuery, onClass, segments }: Props) {
   const body = useRef<HTMLTableSectionElement>(null);
   useEffect(() => {
     body.current?.querySelector("tr.sel")?.scrollIntoView({ block: "nearest" });
   }, [selected]);
+  const tabs = segments && (
+    <span className="segs">
+      {SEGMENTS.map(([k, l]) => <button key={k} className={segments.value === k ? "on" : ""} onClick={() => segments.onChange(k)}>{l} {k === "targets" ? total : segments.counts[k] ?? "…"}</button>)}
+    </span>
+  );
+  if (segments && segments.value !== "targets") {
+    return (
+      <section className="panel catalogue">
+        <header className="seg-head">{tabs}<span>{segments.value === "candidates" ? "newest first" : "claim order"}</span></header>
+        <div className="scroll">{segments.body}</div>
+      </section>
+    );
+  }
   return (
     <section className="panel catalogue">
-      <header><span>Observations · <b>{rows.length}</b>{rows.length !== total && ` of ${total}`}</span><span>sort: depth S/N ↓</span></header>
+      {tabs ? <header className="seg-head">{tabs}<span>{rows.length !== total ? `${rows.length} shown · ` : ""}sort: depth S/N ↓</span></header>
+        : <header><span>Observations · <b>{rows.length}</b>{rows.length !== total && ` of ${total}`}</span><span>sort: depth S/N ↓</span></header>}
       <div className="filter">
         <input ref={input} value={query} onChange={(e) => onQuery(e.target.value)} placeholder="/  wasp  snr>20  err<0.01  p<2  sector:2" spellCheck={false} />
         {BUTTONS.map(([c, label]) => <button key={c} className={c === cls ? "on" : ""} onClick={() => onClass(c)}>{label}</button>)}

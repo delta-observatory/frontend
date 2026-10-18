@@ -101,7 +101,7 @@ export function prefetchEvidence(observationId: string, runId: string) {
 
 async function load(observationId: string, runId: string): Promise<Evidence> {
   const [observation, job] = await Promise.all([getObservation(observationId), getJobResult(runId, observationId)]);
-  if (!job) throw new Error("The active run has no job for this observation.");
+  if (!job) throw new Error(`Run ${runId.slice(0, 8)} has no job for this observation. Show a run that includes it: Run tab, "Show results".`);
   if (job.outcome !== "complete") throw new Error(`The job outcome is "${job.outcome ?? job.state}". It has no search artifacts.${job.error ? ` Error: ${typeof job.error === "string" ? job.error : JSON.stringify(job.error)}` : ""}`);
   const timing = { fetchMs: 0, parseMs: 0, bytes: 0 };
   const art = (kind: string) => job.artifacts.find((a) => a.kind === kind);

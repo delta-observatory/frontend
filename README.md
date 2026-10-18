@@ -6,8 +6,9 @@ The interactive frontend for Delta Observatory: React, Three.js through React Th
 ## Current scope
 
 - Layout L2 shell: top bar, sky, movable rule, workbench, and inspector.
+- Workspaces in the top bar: SKY, ANALYSIS, and EVIDENCE. DATASETS is a disabled tab. ANALYSIS and EVIDENCE put an opaque layer over the sky. The sky stays loaded under it.
 - Compact layout for phones and narrow windows: the sky on top, a selection strip with previous and next buttons, and tabs.
-  The tabs are Targets, Curve, Periodogram, Fold, Details, and Run. Touch: one finger turns the sky, two fingers zoom, and a tap selects.
+  The tabs are Targets, Curve, Pgram, Fold, Details, Run, Records, and Compare. The tab strip scrolls. Touch: one finger turns the sky, two fingers zoom, and a tap selects.
 - Sky sphere in the equatorial frame with no site. North stays up. A drag turns the sky, and the wheel zooms.
 - Stars to magnitude 8. Stars fainter than magnitude 6 fade in as the view zooms in.
 - Constellation lines, an equatorial grid, the ecliptic, the galactic plane, and a drawn Milky Way model.
@@ -36,7 +37,18 @@ The interactive frontend for Delta Observatory: React, Three.js through React Th
   - The run list with job states, changed parameters, a job table, and a button that cancels queued jobs.
   - "Show results" selects the run that the sky, plots, and measurements show. The browser remembers the choice. Without a choice, the API rule `default-run/1` selects the run.
 
-Run comparison is not implemented.
+- Catalogue segments: Targets, Candidates, and Tasks. The Candidates table gives the ID, target, tier, evidence status, identity status, and writer. The Tasks table gives priority, kind, title, state, attempts, holder, and lease time.
+- A dashed square on the sky and on the all-sky map marks each target that a candidate record refers to. It does not encode a status.
+- Records tab in the right column:
+  - Candidate: tier, writer, campaign, the evidence and identity status on two separate axes with basis and actor (rule `candidate-status/1`), the summary, the evidence table, the method warning, and the history of assessments, decisions, and notes, newest first.
+  - The evidence table resolves each reference from `GET /api/candidates/{id}`: the stored value, the standard uncertainty or the stored reason that it is unavailable, the unit, and the quality flags. Job, run, and artifact references show their state and checksum. An external file shows as a ↗ proposal with its URI, size, and SHA-256.
+  - Agent task: the campaign lifecycle and budgets, the values that the campaign withholds from its agents, the task state, attempts, holder, lease time, the directed instructions, inputs, outputs, and report.
+  - Writes for a person: new candidate (platform tier, from the shown result: its job and the chosen search measurements), assessment (basis review), decision (judge person, packet and policy unavailable with a reason), note, new task, and task cancellation. A 422 or 409 response shows at its field.
+  - Selecting a candidate selects its first observation. The workbench then shows the run of its job evidence, with a label, and the stored run choice stays.
+- EVIDENCE workspace: a full-width candidate table with filters for campaign, tier, kind, evidence status, identity status, writer, and text. The workbench and the Records tab stay.
+- ANALYSIS workspace: run A and run B, the parameter differences, the counts (in both, only A, only B, state differs), and a table of the stored period, depth, and depth S/N of both runs. Δ = B − A comes from the API (rule `run-comparison/1`) and carries the display-calculation mark. Filters and a sort by |Δ|. The workbench shows fold A and fold B of the selected row. The Compare tab gives all parameters and the software of both jobs.
+- Run controls: cancel for queued and running jobs, Cancel run, Retry failed and cancelled, Compare with…, and Export…. The job table shows attempts, the failure kind and message, and the cancel, retry, and restart limits.
+- Export dialog: records only or with artifact files, with counts and stored sizes from the API. The download gives the manifest SHA-256 from the response header. "Check files" checks the size and SHA-256 of every manifest entry in the browser.
 
 ## Sign-in
 
@@ -90,8 +102,17 @@ Research agents use the same API. Each value that the frontend shows comes from 
 | `GET /api/methods` | Methods with their parameter schemas, defaults, cross-field rules, and scientific status. |
 | `POST /api/runs` | A new run. |
 | `GET /api/runs/{id}` | Parameters and jobs of one run. |
-| `POST /api/jobs/{id}/cancel` | Cancels one queued job. |
+| `POST /api/jobs/{id}/cancel` | Cancels one queued or running job. |
+| `POST /api/runs/{id}/cancel`, `POST /api/runs/{id}/retry` | Cancels every queued and running job of a run. Retries its failed and cancelled jobs in a new run. |
+| `GET /api/runs/compare` | The comparison of two runs, rule `run-comparison/1`. |
+| `GET /api/runs/{id}/export`, `GET /api/candidates/{id}/export` | Evidence exports, contract `export/1`. |
+| `GET /api/candidates`, `GET /api/candidates/{id}`, `GET /api/tasks`, `GET /api/campaigns` | Candidate and task tables, candidate detail with resolved evidence and history, campaign lifecycle and budgets. |
+| `POST /api/candidates`, `/assessments`, `/decisions`, `/notes`, `/tasks`, `/tasks/{id}/cancel` | Record writes of a person. |
+| `GET /api/jobs/{id}` | The run of a candidate's measurement evidence. |
 | `GET /api/artifacts/{id}/content` | Light curve, prepared series, periodogram, search summary, and input checks of the selected target. |
+
+The export check repeats `backend/scripts/verify_export.py` in the browser. `crypto.subtle` needs a secure context, and the LAN address is plain http, so `src/exports/sha256.ts` computes SHA-256 in TypeScript. `DecompressionStream("deflate-raw")` reads the ZIP entries.
+The frontend calculates no stored value: it formats, sorts, and filters the API values.
 
 The frontend repeats three API calculations, because they must respond within 50 ms.
 They are the search while the user types, the fold during a drag, and the parameter checks while the user types.
@@ -117,7 +138,11 @@ The backend owns these responses. The measurement fields follow `database/contra
 | `src/motion.ts` | Motion setting. |
 | `src/runs/params.ts` | Parameter form logic from a method schema: field checks and the cross-field rule grammar. `params.test.ts` tests it. |
 | `src/runs/useRuns.ts` | Run list refresh, run submission, and job cancellation. |
-| `src/runs/RunPanel.tsx` | Run form and run list. |
+| `src/runs/RunPanel.tsx` | Run form, run list, cancellation, and retry. |
+| `src/api/records.ts` | Types of the research records, campaigns, and the comparison, and the write helper. |
+| `src/records/` | Record tables, the Records tab and its forms, the vocabulary marks, and display helpers. `records.test.ts` tests the helpers. |
+| `src/compare/` | ANALYSIS workspace table, the Compare tab, and display helpers. |
+| `src/exports/` | Export dialog, ZIP reading, the export check, and SHA-256. `exports.test.ts` tests them. |
 | `src/layout.ts` | Choice between the full and the compact layout. |
 | `src/api/` | HTTP access and response types. |
 | `src/data/catalogue.ts` | The target table from the API, the default run, and the observation and job of one target. |

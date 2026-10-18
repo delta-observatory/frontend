@@ -106,11 +106,20 @@ export interface RunSummary {
   parameters_sha256: string;
   input_count: number;
   job_states: Record<string, number>;
+  requested_by?: string;
+  client_id?: string | null;
+  campaign_id?: string | null;
+  /** The earlier run that this run retries, for its failed and cancelled jobs. */
+  retry_of?: string | null;
+  /** True when rule free-text/1 withheld the label from this client. */
+  text_withheld?: boolean;
 }
 
 export type Uncertainty = { kind: "standard"; value: number } | { kind: "unavailable"; reason: string };
 
 export interface Measurement {
+  /** The measurement row. A record refers to a measurement by this ID. */
+  id?: number;
   role: "search" | "reference_comparison";
   name: string;
   value: number;
@@ -134,14 +143,20 @@ export interface JobRow {
   started_at: string | null;
   finished_at: string | null;
   outcome: string | null;
-  error: unknown;
+  /** Failure kind and message. The message is null when blinding withholds identity. */
+  error: JobError | null;
+  cancelled_by?: string | null;
 }
+
+export interface JobError { kind?: string; message?: string | null; traceback?: string | null }
 
 export interface RunDetail extends Omit<RunSummary, "input_count" | "job_states"> {
   parameters: Record<string, unknown>;
   requested_by: string;
   inputs: string[];
   jobs: JobRow[];
+  /** Runs that retry this run. */
+  retries?: string[];
 }
 
 export interface RunRequest {

@@ -32,10 +32,10 @@ function marker(ctx: CanvasRenderingContext2D, cls: Target["cls"], x: number, y:
   ctx.stroke();
 }
 
-interface Props { targets: Target[]; stars: StarColumns | null; selected: string | null; matches: Set<string>; sky: RefObject<HTMLDivElement | null> }
+interface Props { targets: Target[]; stars: StarColumns | null; selected: string | null; matches: Set<string>; sky: RefObject<HTMLDivElement | null>; flagged?: Set<string> }
 
 /** Overview of the whole sky with every target and the outline of the current view. A click turns the view there. */
-export function AllSky({ targets, stars, selected, matches, sky }: Props) {
+export function AllSky({ targets, stars, selected, matches, sky, flagged }: Props) {
   const ref = useRef<HTMLCanvasElement>(null);
   const background = useRef<HTMLCanvasElement | null>(null);
   const { basis, fov } = useCamera();
@@ -88,12 +88,13 @@ export function AllSky({ targets, stars, selected, matches, sky }: Props) {
       ctx.globalAlpha = sel || matches.has(t.id) ? 1 : 0.25;
       ctx.strokeStyle = sel ? colors.textStrong : STATUS[statusOf(t)]; ctx.lineWidth = 1.2;
       marker(ctx, t.cls ?? "planet_host", p[0], p[1], sel ? 4 : 2.5);
+      if (flagged?.has(t.id)) { ctx.strokeStyle = colors.text; ctx.setLineDash([2, 1.5]); ctx.strokeRect(p[0] - 5, p[1] - 5, 10, 10); ctx.setLineDash([]); }
     }
     ctx.globalAlpha = 1;
     ctx.fillStyle = colors.dim; ctx.font = "10px 'IBM Plex Mono'"; ctx.textAlign = "left";
     ctx.fillText(w < 280 ? "ALL SKY" : "ALL SKY · click to turn the view", 6, 12);
     ctx.textAlign = "right"; ctx.fillText(w < 280 ? `${matches.size}/${targets.length}` : `${matches.size} / ${targets.length} shown`, w - 6, 12);
-  }, [basis, fov, targets, stars, selected, matches, sky]);
+  }, [basis, fov, targets, stars, selected, matches, sky, flagged]);
 
   const onClick = (e: MouseEvent<HTMLCanvasElement>) => {
     const r = e.currentTarget.getBoundingClientRect(), p = hammer(r.width, r.height).inv(e.clientX - r.left, e.clientY - r.top);

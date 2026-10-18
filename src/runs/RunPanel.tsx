@@ -2,7 +2,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import type { MethodInfo, RunDetail, RunEstimate, RunSummary } from "../api/types";
 import type { Target } from "../data/catalogue";
 import { check, failedConstraints, fields, getAt, parse, setAt, toText, type Field } from "./params";
-import { cancelQueued, estimateRun, submitRun, useRunDetail } from "./useRuns";
+import { cancelJob, cancelRun, estimateRun, retryRun, submitRun, useRunDetail } from "./useRuns";
 
 interface Props {
   method: MethodInfo;
@@ -14,6 +14,8 @@ interface Props {
   onShow: (runId: string) => void;
   refreshRuns: () => void;
   onStartedRun: (run: RunDetail) => void;
+  onCompare: (runId: string) => void;
+  onExport: (run: RunSummary) => void;
 }
 
 const STATES = ["complete", "inconclusive", "failed", "cancelled", "running", "queued"] as const;
@@ -33,7 +35,8 @@ export function RunPanel(p: Props) {
       {p.runs == null && <div className="empty">Loading the runs…</div>}
       {analysisRuns.map((r) => (
         <RunRow key={r.id} run={r} method={p.method} active={r.id === p.activeRunId} open={r.id === watch} targetsById={p.targetsById}
-          onToggle={() => setWatch(watch === r.id ? null : r.id)} onShow={() => p.onShow(r.id)} refreshRuns={p.refreshRuns} />
+          onToggle={() => setWatch(watch === r.id ? null : r.id)} onShow={() => p.onShow(r.id)} refreshRuns={p.refreshRuns}
+          onCompare={() => p.onCompare(r.id)} onExport={() => p.onExport(r)} onRetried={(run) => { setWatch(run.id); p.onStartedRun(run); }} />
       ))}
     </div></div>
   );
@@ -169,17 +172,22 @@ function StateBar({ states, total }: { states: Record<string, number>; total: nu
   );
 }
 
-interface RowProps { run: RunSummary; method: MethodInfo; active: boolean; open: boolean; targetsById: Map<string, Target>; onToggle: () => void; onShow: () => void; refreshRuns: () => void }
+interface RowProps {
+  run: RunSummary; method: MethodInfo; active: boolean; open: boolean; targetsById: Map<string, Target>;
+  onToggle: () => void; onShow: () => void; refreshRuns: () => void; onCompare: () => void; onExport: () => void; onRetried: (run: RunDetail) => void;
+}
 
-function RunRow({ run, method, active, open, targetsById, onToggle, onShow, refreshRuns }: RowProps) {
+function RunRow({ run, method, active, open, targetsById, onToggle, onShow, refreshRuns, onCompare, onExport, onRetried }: RowProps) {
   const detail = useRunDetail(run.id, open ? JSON.stringify(run.job_states) : "");
   const [note, setNote] = useState<string | null>(null);
   const queued = run.job_states.queued ?? 0, running = run.job_states.running ?? 0, done = run.input_count - queued - running;
+  const retryable = (run.job_states.failed ?? 0) + (run.job_states.cancelled ?? 0);
+  const act = async (f: () => Promise<string>) => { try { setNote(await f()); } catch (e) { setNote((e as Error).message); } refreshRuns(); };
   const changed = detail ? fields(method.parameters_schema).filter((f) => !same(getAt(detail.parameters, f.path), getAt(method.defaults, f.path))) : [];
   return (
     <div className={`run${active ? " active" : ""}`}>
       <div className="run-head" onClick={onToggle}>
-        <span className="run-title"><b>{run.label || "No label"}</b><span className="mono">{run.id.slice(0, 8)} · {when(run.created_at)}</span></span>
+        <span className="run-title"><b>{run.label || (run.text_withheld ? "Label withheld" : "No label")}</b><span className="mono">{run.id.slice(0, 8)} · {when(run.created_at)}{run.retry_of ? ` · retry of ${run.retry_of.slice(0, 8)}` : ""}</span></span>
         <span className="run-count mono">{done}/{run.input_count}</span>
       </div>
       <StateBar states={run.job_states} total={run.input_count} />
@@ -188,8 +196,11 @@ function RunRow({ run, method, active, open, targetsById, onToggle, onShow, refr
       </div>
       <div className="run-actions">
         {active ? <span className="run-active">Shown</span> : <button onClick={onShow} disabled={(run.job_states.complete ?? 0) === 0}>Show results</button>}
-        {queued > 0 && <button onClick={async () => { const r = await cancelQueued(run.id); setNote(`${r.cancelled} cancelled${r.started ? `, ${r.started} already started` : ""}`); refreshRuns(); }}>Cancel {queued} queued</button>}
+        {queued + running > 0 && <button onClick={() => act(async () => { const r = await cancelRun(run.id); return `${r.cancelled} cancelled, ${r.was_running} of them running${r.note ? `. ${r.note}` : ""}`; })}>Cancel run</button>}
+        {retryable > 0 && queued + running === 0 && <button onClick={() => act(async () => { const r = await retryRun(run.id); onRetried(r); return `Retry run ${r.id.slice(0, 8)} with ${r.jobs.length} jobs`; })}>Retry failed and cancelled ({retryable})</button>}
         <button onClick={onToggle}>{open ? "Hide jobs" : "Jobs"}</button>
+        <button onClick={onCompare}>Compare with…</button>
+        <button onClick={onExport}>Export…</button>
         {note && <span className="mono">{note}</span>}
       </div>
       {open && detail && (
@@ -199,15 +210,29 @@ function RunRow({ run, method, active, open, targetsById, onToggle, onShow, refr
               const t = targetsById.get(j.observation_id);
               const secs = j.started_at ? ((j.finished_at ? Date.parse(j.finished_at) : Date.now()) - Date.parse(j.started_at)) / 1000 : null;
               return (
-                <tr key={j.id} title={j.error ? JSON.stringify(j.error) : undefined}>
-                  <td className="nm">{t?.name ?? t?.tic ?? j.observation_id.slice(0, 8)}</td>
-                  <td><span className={`state st-${j.state}`}>{j.state}</span></td>
-                  <td className="n">{secs == null ? "—" : `${secs.toFixed(1)} s`}</td>
-                </tr>
+                <Fragment key={j.id}>
+                  <tr>
+                    <td className="nm">{t?.name ?? t?.tic ?? j.observation_id.slice(0, 8)}</td>
+                    <td><span className={`state st-${j.state}`}>{j.state}</span></td>
+                    <td className="n">{j.attempts}/{j.max_attempts}</td>
+                    <td className="n">{secs == null ? "—" : `${secs.toFixed(1)} s`}</td>
+                    <td>{(j.state === "queued" || j.state === "running") && <button className="x" onClick={() => act(async () => { const r = await cancelJob(j.id); return r.was_running ? "Cancelled a running job. The worker stops it at its next lease extension." : "Cancelled a queued job."; })}>cancel</button>}</td>
+                  </tr>
+                  {j.error && (j.state === "failed" || j.state === "inconclusive") && (
+                    <tr className="job-err"><td colSpan={5}><b>{j.state} · {j.error.kind ?? "error"}</b> · {j.error.message ?? "message withheld"}</td></tr>
+                  )}
+                </Fragment>
               );
             })}
           </tbody>
         </table>
+      )}
+      {open && (
+        <div className="run-limits">
+          Cancel of a running job: the worker stops the method at its next lease extension, at most one third of the lease later, and discards the output of that attempt. Its worker time is not recorded.
+          A failed job does not retry by itself. Retry creates a new run for the failed and cancelled jobs. Completed jobs are not repeated.
+          A method does not resume partial work. A worker restart returns its running job to the queue, and the next attempt starts again.
+        </div>
       )}
     </div>
   );

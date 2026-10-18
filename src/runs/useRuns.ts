@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ApiError, apiFetch, getJson, pool } from "../api/client";
+import { ApiError, apiFetch, getJson } from "../api/client";
 import type { RunDetail, RunEstimate, RunRequest, RunSummary, ValidationErrorBody } from "../api/types";
 
 const busy = (r: RunSummary) => (r.job_states.queued ?? 0) + (r.job_states.running ?? 0) > 0;
@@ -97,16 +97,28 @@ async function rejection(res: Response): Promise<Rejection> {
   return { ok: false, fieldErrors, message };
 }
 
-/** Cancels every queued job of a run. A job that a worker claimed first gives 409 and continues. */
-export async function cancelQueued(runId: string): Promise<{ cancelled: number; started: number }> {
-  const run = await getJson<RunDetail>(`/runs/${runId}`);
-  const queued = run.jobs.filter((j) => j.state === "queued");
-  let cancelled = 0, started = 0;
-  await pool(queued, 4, async (j) => {
-    const res = await apiFetch(`/api/jobs/${j.id}/cancel`, { method: "POST" });
-    if (res.ok) cancelled++;
-    else if (res.status === 409) started++;
-    else throw new ApiError(res.status, `/jobs/${j.id}/cancel`, `${res.status} ${res.statusText}`);
-  });
-  return { cancelled, started };
+/** POST /api/runs/{id}/cancel: cancels every queued and running job of the run. */
+export async function cancelRun(runId: string): Promise<{ cancelled: number; was_running: number; note: string | null }> {
+  const res = await apiFetch(`/api/runs/${runId}/cancel`, { method: "POST" });
+  if (!res.ok) throw new ApiError(res.status, `/runs/${runId}/cancel`, await message(res));
+  return res.json();
+}
+
+/** POST /api/jobs/{id}/cancel: a queued or running job. A running job stops at the worker's next lease extension. */
+export async function cancelJob(jobId: string): Promise<{ was_running: boolean }> {
+  const res = await apiFetch(`/api/jobs/${jobId}/cancel`, { method: "POST" });
+  if (!res.ok) throw new ApiError(res.status, `/jobs/${jobId}/cancel`, await message(res));
+  return res.json();
+}
+
+/** POST /api/runs/{id}/retry: a new run for the failed and cancelled jobs, with the same method version and parameters. */
+export async function retryRun(runId: string): Promise<RunDetail> {
+  const res = await apiFetch(`/api/runs/${runId}/retry`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+  if (!res.ok) throw new ApiError(res.status, `/runs/${runId}/retry`, await message(res));
+  return res.json();
+}
+
+async function message(res: Response): Promise<string> {
+  try { const b = (await res.json()) as { detail: unknown }; return typeof b.detail === "string" ? b.detail : JSON.stringify(b.detail); }
+  catch { return `${res.status} ${res.statusText}`; }
 }
