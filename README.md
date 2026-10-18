@@ -1,7 +1,9 @@
 # Delta Observatory frontend
 
+This repository is one component of [Delta Observatory](https://github.com/delta-observatory/delta-observatory). The entry repository describes the application and restores every component.
+
 The interactive frontend for Delta Observatory: React, Three.js through React Three Fiber, TypeScript, and Vite.
-[DESIGN-DECISIONS.md](DESIGN-DECISIONS.md) records the agreed design. [DESIGN.md](../DESIGN.md) sets the requirements.
+[DESIGN-DECISIONS.md](DESIGN-DECISIONS.md) records the agreed design. [DESIGN.md](https://github.com/delta-observatory/delta-observatory/blob/main/DESIGN.md) sets the requirements.
 
 ## Current scope
 
@@ -87,7 +89,7 @@ To add or change `vitest`, run `npm install -D vitest@<version> --legacy-peer-de
 
 The `Dockerfile` builds the app with Node 22 and serves `dist/` with unprivileged nginx on port 8080.
 `deploy/nginx.conf` sends `/api/` to the `delta-api` Service and answers `/healthz`.
-`kubernetes/scripts/build.sh frontend` builds the image in the cluster. [kubernetes/README.md](../kubernetes/README.md) describes the release.
+`kubernetes/scripts/build.sh frontend` builds the image in the cluster. [kubernetes/README.md](https://github.com/delta-observatory/kubernetes/blob/main/README.md) describes the release.
 The deployed app is at `http://<node>:30871/`, where `<node>` is the address of the k3s node.
 
 ## API use
@@ -167,3 +169,8 @@ The backend owns these responses. The measurement fields follow `database/contra
 | `src/sky/AllSky.tsx` | All-sky map. |
 | `src/perf/frames.ts` | Frame time measurement. |
 | `src/theme.ts` | Colour tokens for WebGL and CSS. |
+
+## License
+
+The code is under the [MIT License](LICENSE).
+The sky star and constellation files come from d3-celestial under the BSD 3-Clause license. [public/sky/SOURCE.md](public/sky/SOURCE.md) gives the source and the notice.

@@ -2,7 +2,7 @@
 
 This file records the agreed design decisions for the Delta Observatory frontend.
 Richard directs the visual style and the interaction design.
-[DESIGN.md](../DESIGN.md) sets the frontend requirements. This file records the choices inside those requirements.
+[DESIGN.md](https://github.com/delta-observatory/delta-observatory/blob/main/DESIGN.md) sets the frontend requirements. This file records the choices inside those requirements.
 [README.md](README.md) describes the code that exists.
 
 ## Agreed
