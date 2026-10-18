@@ -11,7 +11,7 @@ export function RunsHolding({ message, observationId, onShow }: { message: strin
     setRuns(null);
     if (!noJob || !observationId) return;
     const ctl = new AbortController();
-    getJson<RunSummary[]>(`/runs?observation_id=${observationId}&limit=10`, ctl.signal).then(setRuns, () => setRuns([]));
+    getJson<RunSummary[]>(`/runs?observation_id=${observationId}&limit=50`, ctl.signal).then(setRuns, () => setRuns([]));
     return () => ctl.abort();
   }, [noJob, observationId]);
   if (!noJob) return <div className="empty">{message}</div>;
