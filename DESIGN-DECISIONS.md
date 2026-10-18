@@ -31,7 +31,7 @@ Richard directs the visual style and the interaction design.
 | Status colours | The API rule `period-agreement/1` sets each marker colour. Its thresholds are display bins, not validation criteria. |
 | Active run | One run at a time supplies the sky colours, plots, and measurements. "Show results" selects it, and the browser remembers it. Without a choice, the API rule `default-run/1` selects the run with the most complete jobs. The newest run wins a tie. A run that finishes does not replace the shown run. |
 | Tools | React, Three.js through React Three Fiber, TypeScript, and Vite. The sky, the targets, and the plots render with WebGL. Tables, the inspector, and forms are React. |
-| API access | In development, a Vite proxy sends `/api` to `http://10.0.0.47:30870`. The deployed build uses NodePort 30871 and its own proxy to the API service. CORS stays disabled. |
+| API access | In development, a Vite proxy sends `/api` to the API NodePort, `http://localhost:30870` by default. The deployed build uses NodePort 30871 and its own proxy to the API service. CORS stays disabled. |
 | Shape | Sharp corners on all panels, controls, and markers that have a box shape. |
 | Density | A precise and dense layout. |
 | Character | Technical and restrained. The interface must not look like a generic web application template. |
@@ -75,7 +75,7 @@ A binary artifact format is a possible fix if the JSON artifacts miss the 400 ms
 
 | Item | Value |
 |---|---|
-| Computer | The workstation that runs the k3s node, at 10.0.0.47 on the LAN. |
+| Computer | The workstation that runs the k3s node on the LAN. |
 | Browser | Chromium with GPU rendering and WebGL 2. A Chromium started with `--disable-gpu` has no WebGL, and the sky view then shows the browser's reason. |
 | Graphics card | NVIDIA GeForce RTX 3080, 10 GiB. |
 | Screen | No fixed resolution. The layout fits the browser window. |

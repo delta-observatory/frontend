@@ -73,9 +73,9 @@ npm run build      # type check and production build in dist/
 ```
 
 The development server binds to `0.0.0.0:5173`.
-It sends `/api` to `http://10.0.0.47:30870`. Set `DELTA_API_URL` to use another API.
+It sends `/api` to `http://localhost:30870`, the API NodePort on the k3s node. Set `DELTA_API_URL` to use another API.
 The address hash sets the first view, for example `#ra=266.4&dec=-28.9&fov=100`.
-Vite accepts IP addresses and the host names `machine` and `machine.local`. It blocks other host names.
+Vite accepts IP addresses and `localhost`. It blocks other host names. Set `DELTA_ALLOWED_HOSTS` to a comma-separated list of host names to accept more.
 
 The sky view needs WebGL 2. Without it, the sky area shows the browser's reason, and the other panels still work.
 Chromium started with `--disable-gpu` has no WebGL.
@@ -88,7 +88,7 @@ To add or change `vitest`, run `npm install -D vitest@<version> --legacy-peer-de
 The `Dockerfile` builds the app with Node 22 and serves `dist/` with unprivileged nginx on port 8080.
 `deploy/nginx.conf` sends `/api/` to the `delta-api` Service and answers `/healthz`.
 `kubernetes/scripts/build.sh frontend` builds the image in the cluster. [kubernetes/README.md](../kubernetes/README.md) describes the release.
-The deployed app is at `http://10.0.0.47:30871/` on the LAN.
+The deployed app is at `http://<node>:30871/`, where `<node>` is the address of the k3s node.
 
 ## API use
 

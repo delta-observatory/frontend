@@ -9,7 +9,13 @@ These files are display assets for the background sky. They are not scientific r
 | `constellations.json` | `data/constellations.lines.json` from the same package | 150 constellation line strings as RA and Dec pairs in degrees. |
 
 The package states its star source as XHIP, an extended Hipparcos compilation (Anderson and Francis 2012, VizieR V/137D).
-The package uses the BSD licence.
+The package gives its constellation lines from the IAU constellation figures, with changes by its author.
+
+d3-celestial is Copyright (c) 2015, Olaf Frohn, under the BSD 3-Clause licence.
+[LICENSE-d3-celestial](LICENSE-d3-celestial) holds its licence text. Keep that file next to these files and in each build.
+
+Cite the star catalogue as: Anderson, E., and Francis, C. 2012, Astronomy Letters, 38, 331.
+This display uses the VizieR catalogue access tool, CDS, Strasbourg, France.
 
 Source file SHA-256 values:
 
