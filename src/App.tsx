@@ -300,7 +300,10 @@ export function App() {
         body: recordLists.error && !recordLists.candidates ? <div className="error-inline">The records did not load. {recordLists.error}</div>
           : segment === "candidates" ? candidateTable(false, recordLists.candidates) : taskTable }} />
   );
-  const status = evidence && !fresh && current && (
+  // The shown run has no job for the selected observation: show the runs that hold it, not the previous target's plots.
+  const noJob = evError != null && /no job/.test(evError);
+  const benchEvidence = noJob ? null : evidence;
+  const status = benchEvidence && !fresh && current && (
     <div className="bench-status">
       {evError ? <span className="bad">{current.name ?? current.tic}: {evError}</span> : <>Loading <b>{current.name ?? current.tic}</b></>}
       {" · showing "}{shownTarget?.name ?? shownTarget?.tic}
@@ -360,12 +363,12 @@ export function App() {
         </nav>
         <div className="pane">
           <div className={tab === "targets" ? "pane-fill" : "hidden"}>{catalogue}</div>
-          <div className={plotTab ? `pane-fill bench-one${evidence && !fresh ? " stale" : ""}` : "hidden"}>
-            {evidence ? (
+          <div className={plotTab ? `pane-fill bench-one${benchEvidence && !fresh ? " stale" : ""}` : "hidden"}>
+            {benchEvidence ? (
               <>
-                <div className={tab === "light" ? "pane-fill" : "hidden"}><LightCurve ev={evidence} brush={brush} cursorT={cursorT} foldP={foldP} onBrush={setBrush} onCursorT={setCursorT} /></div>
-                <div className={tab === "pgram" ? "pane-fill" : "hidden"}><Periodogram ev={evidence} foldP={foldP} cursorP={cursorP} onFoldP={setFoldP} onCursorP={setCursorP} /></div>
-                <div className={tab === "fold" ? "pane-fill" : "hidden"}><Fold ev={evidence} brush={brush} cursorT={cursorT} foldP={foldP} /></div>
+                <div className={tab === "light" ? "pane-fill" : "hidden"}><LightCurve ev={benchEvidence} brush={brush} cursorT={cursorT} foldP={foldP} onBrush={setBrush} onCursorT={setCursorT} /></div>
+                <div className={tab === "pgram" ? "pane-fill" : "hidden"}><Periodogram ev={benchEvidence} foldP={foldP} cursorP={cursorP} onFoldP={setFoldP} onCursorP={setCursorP} /></div>
+                <div className={tab === "fold" ? "pane-fill" : "hidden"}><Fold ev={benchEvidence} brush={brush} cursorT={cursorT} foldP={foldP} /></div>
                 {status}
                 {(brush || foldP) && (
                   <div className="chips">
@@ -449,13 +452,13 @@ export function App() {
           {foldOf(evB, cmpErr[1], "B", cmpB)}
         </div>
       ) : (
-        <div className={`bench${evidence && !fresh ? " stale" : ""}`}>
-          {evidence ? (
+        <div className={`bench${benchEvidence && !fresh ? " stale" : ""}`}>
+          {benchEvidence ? (
             <>
-              <LightCurve ev={evidence} brush={brush} cursorT={cursorT} foldP={foldP} onBrush={setBrush} onCursorT={setCursorT} />
+              <LightCurve ev={benchEvidence} brush={brush} cursorT={cursorT} foldP={foldP} onBrush={setBrush} onCursorT={setCursorT} />
               <div className="bench-row">
-                <Periodogram ev={evidence} foldP={foldP} cursorP={cursorP} onFoldP={setFoldP} onCursorP={setCursorP} />
-                <Fold ev={evidence} brush={brush} cursorT={cursorT} foldP={foldP} />
+                <Periodogram ev={benchEvidence} foldP={foldP} cursorP={cursorP} onFoldP={setFoldP} onCursorP={setCursorP} />
+                <Fold ev={benchEvidence} brush={brush} cursorT={cursorT} foldP={foldP} />
               </div>
               {status}
               {focusNote}
