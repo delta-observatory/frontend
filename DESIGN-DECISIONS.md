@@ -76,7 +76,7 @@ A binary artifact format is a possible fix if the JSON artifacts miss the 400 ms
 | Item | Value |
 |---|---|
 | Computer | The workstation that runs the k3s node, at 10.0.0.47 on the LAN. |
-| Browser | Chromium with GPU rendering. The normal Chromium profile on the workstation starts with `--disable-gpu` from `~/.config/chromium-flags.conf` and has no WebGL. |
+| Browser | Chromium with GPU rendering and WebGL 2. A Chromium started with `--disable-gpu` has no WebGL, and the sky view then shows the browser's reason. |
 | Graphics card | NVIDIA GeForce RTX 3080, 10 GiB. |
 | Screen | No fixed resolution. The layout fits the browser window. |
 
