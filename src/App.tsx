@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { Explore } from "./explore/Explore";
 import { DatasetBrowser } from "./datasets/Browser";
 import { Catalogue, type Segment } from "./Catalogue";
 import { accessOf, AccessContext, useAccess, type Me } from "./api/access";
@@ -36,9 +37,9 @@ async function getStatic<T>(path: string): Promise<T> {
   return (await res.json()) as T;
 }
 
-type Tab = "datasets" | "targets" | "light" | "pgram" | "fold" | "details" | "run" | "records" | "compare";
-const TABS: [Tab, string][] = [["targets", "Targets"], ["datasets", "Datasets"], ["light", "Curve"], ["pgram", "Pgram"], ["fold", "Fold"], ["details", "Details"], ["run", "Run"], ["records", "Records"], ["compare", "Compare"]];
-type Workspace = "sky" | "datasets" | "analysis" | "evidence";
+type Tab = "explore" | "datasets" | "targets" | "light" | "pgram" | "fold" | "details" | "run" | "records" | "compare";
+const TABS: [Tab, string][] = [["explore", "Explore"], ["targets", "Targets"], ["datasets", "Datasets"], ["light", "Curve"], ["pgram", "Pgram"], ["fold", "Fold"], ["details", "Details"], ["run", "Run"], ["records", "Records"], ["compare", "Compare"]];
+type Workspace = "explore" | "sky" | "datasets" | "analysis" | "evidence";
 type Side = "details" | "run" | "records" | "compare";
 
 /** The time, once a second while `on`. Lease countdowns use it. */
@@ -70,7 +71,7 @@ function Workbench({ me }: { me: Me | null }) {
   const [defaultRun, setDefaultRun] = useState<RunSummary | null | undefined>(undefined);
   const [observation, setObservation] = useState<ObservationDetail | null>(null);
   const [side, setSide] = useState<Side>("details");
-  const [workspace, setWorkspace] = useState<Workspace>("sky");
+  const [workspace, setWorkspace] = useState<Workspace>("explore");
   const [segment, setSegment] = useState<Segment>("targets");
   const [record, setRecord] = useState<Selection>(null);
   // The run of a candidate's job evidence. The workbench shows it without a change to the stored run choice.
@@ -99,7 +100,7 @@ function Workbench({ me }: { me: Me | null }) {
   const skyCell = useRef<HTMLDivElement>(null);
   const searchInput = useRef<HTMLInputElement>(null);
   const compact = useCompact();
-  const [tab, setTab] = useState<Tab>("targets");
+  const [tab, setTab] = useState<Tab>("explore");
   // The tab strip scrolls on a phone. The active tab stays in view.
   useEffect(() => { if (compact) document.querySelector(".mtabs button.on")?.scrollIntoView({ block: "nearest", inline: "nearest" }); }, [compact, tab]);
 
@@ -149,8 +150,8 @@ function Workbench({ me }: { me: Me | null }) {
   }, [targets]);
   const method = activeRun && base ? base.methods.get(`${activeRun.method_id}/${activeRun.method_version}`) ?? null : base ? [...base.methods.values()].find((m) => m.kind === "analysis") ?? null : null;
   const showRun = (id: string) => { setActiveRunId(id); setFocusRunId(null); setEvidence(null); };
-  // Research records load after the sky and the catalogue.
-  const recordLists = useRecords(targets.length > 0);
+  // Research records load after the API metadata.
+  const recordLists = useRecords(base != null);
   const campaigns = useMemo(() => new Map<string, Campaign>((recordLists.campaigns ?? []).map((c) => [c.id, c])), [recordLists.campaigns]);
   const flagged = useMemo(() => new Set((recordLists.candidates ?? []).flatMap((c) => c.observation_ids)), [recordLists.candidates]);
   const now = useNow((recordLists.tasks ?? []).some((t) => t.state === "claimed"));
@@ -255,7 +256,7 @@ function Workbench({ me }: { me: Me | null }) {
   // Keys: / search, j and k next and previous, f turn to the selection, + and − zoom.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (workspace === "datasets" || (compact && tab === "datasets")) return;
+      if ((!compact && workspace === "explore") || (compact && tab === "explore") || workspace === "datasets" || (compact && tab === "datasets")) return;
       if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
       if (e.key === "Escape" && !(e.target instanceof HTMLInputElement)) { setBrush(null); setFoldP(null); return; }
       if (e.target instanceof HTMLInputElement) {
@@ -374,6 +375,16 @@ function Workbench({ me }: { me: Me | null }) {
   const filtered = useMemo(() => filterCandidates(recordLists.candidates ?? [], candFilter, (c) => candidateTarget(c, targetsById)), [recordLists.candidates, candFilter, targetsById]);
   const writers = useMemo(() => [...new Set((recordLists.candidates ?? []).map((c) => c.actor.name))].sort(), [recordLists.candidates]);
 
+  if ((!compact && workspace === "explore") || (compact && tab === "explore")) {
+    return <div className="app explore-workspace">
+      <div className="bar"><span className="brand">DELTA OBSERVATORY</span><span className="seg">api <b>{base?.health.status ?? "…"}</b></span>{whoButton}
+        <nav className="tabs"><button className="on">EXPLORE</button><button onClick={() => { setWorkspace("sky"); setTab("targets"); }}>SKY</button><button onClick={() => { setWorkspace("datasets"); setTab("datasets"); }}>DATASETS</button><button onClick={() => { setWorkspace("analysis"); setTab("compare"); setSide("compare"); }}>ANALYSIS</button><button onClick={() => { setWorkspace("evidence"); setTab("records"); setSide("records"); }}>EVIDENCE</button></nav>
+      </div>
+      {error && !base ? <div className="error-inline">{error}</div> : me && <Explore base={base} runs={runs} records={recordLists} person={me.kind !== "agent"} refreshRuns={refreshRuns} onStartedRun={expectRun} onCompare={(id) => { openCompare(id); setTab("compare"); }} onExport={setExporting} />}
+      {exportDialog}
+    </div>;
+  }
+
   if (compact) {
     const plotTab = tab === "light" || tab === "pgram" || tab === "fold";
     return (
@@ -470,6 +481,7 @@ function Workbench({ me }: { me: Me | null }) {
         {whoButton}
           {motionButton}
         <span className="tabs">
+          <button onClick={() => { setWorkspace("explore"); setTab("explore"); }}>EXPLORE</button>
           <button className={workspace === "sky" ? "on" : ""} onClick={() => setWorkspace("sky")}>SKY</button>
           <button className={workspace === "datasets" ? "on" : ""} onClick={() => setWorkspace("datasets")}>DATASETS</button>
           <button className={workspace === "analysis" ? "on" : ""} onClick={() => { setWorkspace("analysis"); setSide("compare"); }}>ANALYSIS</button>

@@ -11,6 +11,7 @@ interface Props {
   activeRunId: string | null;
   selected: Target | null;
   matches: Target[];
+  matchesLabel?: string;
   targetsById: Map<string, Target>;
   onShow: (runId: string) => void;
   refreshRuns: () => void;
@@ -114,7 +115,7 @@ function RunForm(p: Props & { onStarted: (run: RunDetail) => void }) {
         <label className={scope === "selected" ? "on" : ""}><input type="radio" checked={scope === "selected"} onChange={() => setScope("selected")} />
           Selected target <b>{p.selected ? p.selected.name ?? p.selected.tic : "none"}</b></label>
         <label className={scope === "matches" ? "on" : ""}><input type="radio" checked={scope === "matches"} onChange={() => setScope("matches")} />
-          Search matches <b>{p.matches.length}</b></label>
+          {p.matchesLabel ?? "Search matches"} <b>{p.matches.length}</b></label>
       </div>
       <input className="run-label" placeholder="Label (optional), for example: maximum period 20 d" value={runLabel} onChange={(e) => setRunLabel(e.target.value)} maxLength={200} />
       <div className="params">

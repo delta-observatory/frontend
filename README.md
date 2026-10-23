@@ -7,10 +7,11 @@ The interactive frontend for Delta Observatory: React, Canvas 2D, TypeScript, an
 
 ## Current scope
 
-- Layout L2 shell: top bar, sky, movable rule, workbench, and inspector.
-- Workspaces in the top bar: SKY, DATASETS, ANALYSIS, and EVIDENCE. DATASETS uses the full work area. ANALYSIS and EVIDENCE cover the sky area.
+- EXPLORE opens by default with a ranked signal queue, linked charts, and candidate review.
+- SKY uses the L2 shell: top bar, sky, movable rule, workbench, and inspector.
+- Workspaces in the top bar: EXPLORE, SKY, DATASETS, ANALYSIS, and EVIDENCE. DATASETS uses the full work area. ANALYSIS and EVIDENCE cover the sky area.
 - Compact layout for phones and narrow windows: the sky on top, a selection strip with previous and next buttons, and tabs.
-  The tabs are Targets, Datasets, Curve, Pgram, Fold, Details, Run, Records, and Compare. The tab strip scrolls. Touch: one finger turns the sky, two fingers zoom, and a tap selects.
+  The tabs are Explore, Targets, Datasets, Curve, Pgram, Fold, Details, Run, Records, and Compare. The tab strip scrolls. Touch: one finger turns the sky, two fingers zoom, and a tap selects.
 - Sky sphere in the equatorial frame with no site. North stays up. A drag turns the sky, and the wheel zooms.
 - Stars to magnitude 8. Stars fainter than magnitude 6 fade in as the view zooms in.
 - Constellation lines, an equatorial grid, the ecliptic, the galactic plane, and a drawn Milky Way model.
@@ -51,6 +52,32 @@ The interactive frontend for Delta Observatory: React, Canvas 2D, TypeScript, an
 - ANALYSIS workspace: run A and run B, the parameter differences, the counts (in both, only A, only B, state differs), and a table of the stored period, depth, and depth S/N of both runs. Δ = B − A comes from the API (rule `run-comparison/1`) and carries the display-calculation mark. Filters and a sort by |Δ|. The workbench shows fold A and fold B of the selected row. The Compare tab gives all parameters and the software of both jobs.
 - Run controls: cancel for queued and running jobs, Cancel run, Retry failed and cancelled, Compare with…, and Export…. The job table shows attempts, the failure kind and message, and the cancel, retry, and restart limits.
 - Export dialog: records only or with artifact files, with counts and stored sizes from the API. The download gives the manifest SHA-256 from the response header. "Check files" checks the size and SHA-256 of every manifest entry in the browser.
+
+## Signal exploration
+
+EXPLORE uses the full work area. It lists one completed BLS search for each ready observation through `GET /api/signals`.
+The default result is the latest completed visible search. A run filter selects the results of one run.
+The default sample for people excludes known-planet and eclipsing-binary labels. Missing labels do not establish a new object.
+Depth signal-to-noise ratio orders the queue. It is not a planet probability or a validated detection threshold.
+Other controls select a dataset, target, linked candidate records, or a different order. Each page contains at most 100 observations.
+
+Each selection loads the exact run and observation artifacts. The heading gives stored period, depth, duration, signal-to-noise ratio, and event count.
+Depth uses parts per million (ppm). Details gives the stored uncertainties, quality flags, input checks, and software provenance.
+A target button filters the queue to that target's sectors. Previous and Next move through the current page.
+
+- The light curve shows normalized flux with its trend, or the worker's flattened flux.
+- The wheel changes the time scale. Shift + drag moves the time window. Reset time restores the full range.
+- A drag selects times for the fold. Zoom selection enlarges that range. Event buttons move between predicted events.
+- The periodogram and stored peak buttons select a display period. P/2, 2P, and a numeric field provide alternate periods.
+- Full cycle shows the complete phase range. The default fold shows the event window.
+- Display folds keep the stored transit epoch. They do not fit a new model or change the stored search.
+
+Review shows linked candidate records with separate evidence and identity judgments, history, assessments, decisions, and notes.
+The chart run can differ from a candidate's cited evidence. Both sources remain explicit.
+New candidate from this result cites the displayed job and selected stored search measurements.
+Run search estimates and submits the selected observation or the current queue page, with editable method parameters.
+Completed jobs enter the queue as the run progresses. A failed job does not replace an earlier completed result.
+All writes use the existing authenticated API. These controls do not confer scientific validation.
 
 ## Dataset browser
 

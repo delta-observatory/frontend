@@ -5,17 +5,17 @@ import { bins, fold, foldBinHours, foldWindowHours, offsetHours } from "./fold";
 import { clipPlot, drawAxes, drawLegend, drawReadout, type Frame } from "./surface";
 import { usePlot } from "./usePlot";
 
-interface Props { ev: Evidence; brush: [number, number] | null; cursorT: number | null; foldP: number | null }
+interface Props { fullCycle?: boolean; ev: Evidence; brush: [number, number] | null; cursorT: number | null; foldP: number | null }
 
 /**
  * Flattened flux folded at the BLS period, or at a display period from the periodogram.
  * The box model shows only for the stored result. A display fold is not a stored result.
  */
-export function Fold({ ev, brush, cursorT, foldP }: Props) {
+export function Fold({ ev, brush, cursorT, foldP, fullCycle = false }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const { surface, size } = usePlot(box);
   const best = ev.summary.best, P = foldP ?? best.period, T0 = best.transit_time, display = foldP != null;
-  const win = foldWindowHours(best.duration, P), binH = foldBinHours(win);
+  const win = fullCycle ? P * 12 : foldWindowHours(best.duration, P), binH = foldBinHours(win);
 
   const folded = useMemo(() => fold(ev.prepared.time!, ev.prepared.flattened_flux!, T0, P, win, brush), [ev, T0, P, win, brush]);
   const binned = useMemo(() => bins(folded, win, binH), [folded, win, binH]);
