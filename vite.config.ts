@@ -8,6 +8,6 @@ const allowedHosts = (process.env.DELTA_ALLOWED_HOSTS ?? "").split(",").map((h) 
 
 export default defineConfig({
   plugins: [react()],
-  server: { allowedHosts, proxy: { "/api": { target: api, changeOrigin: true } } },
-  preview: { proxy: { "/api": { target: api, changeOrigin: true } } },
+  server: { allowedHosts, proxy: { "/api": { target: api, changeOrigin: true }, "/gui-api": { target: api, changeOrigin: true } } },
+  preview: { proxy: { "/api": { target: api, changeOrigin: true }, "/gui-api": { target: api, changeOrigin: true } } },
 });

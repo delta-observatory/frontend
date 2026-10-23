@@ -1,6 +1,6 @@
-// HTTP access to the Delta Observatory API. All paths start with /api.
+// HTTP access to the Delta Observatory API. Callers supply /api paths.
 // In development, the Vite proxy sends /api to the cluster API.
-// Each request carries the signed-in client's bearer token. The browser keeps the token in localStorage.
+// Signed-in requests carry a bearer token. Anonymous reads use the separate /gui-api channel.
 
 export class ApiError extends Error {
   constructor(readonly status: number, readonly path: string, message: string) {
@@ -19,6 +19,8 @@ export const session = {
     token = next;
     try { if (next) localStorage.setItem(TOKEN_KEY, next); else localStorage.removeItem(TOKEN_KEY); } catch { /* The token stays for this page only. */ }
     for (const l of listeners) l();
+    // A new document clears every cached result when the client identity changes.
+    location.reload();
   },
   subscribe(l: () => void) { listeners.add(l); return () => { listeners.delete(l); }; },
 };
@@ -27,7 +29,8 @@ export const session = {
 export async function apiFetch(url: string, init: RequestInit = {}): Promise<Response> {
   const headers = new Headers(init.headers);
   if (token) headers.set("Authorization", `Bearer ${token}`);
-  const res = await fetch(url, { ...init, headers });
+  const path = !headers.has("Authorization") && url.startsWith("/api/") ? `/gui-api/${url.slice(5)}` : url;
+  const res = await fetch(path, { cache: "no-store", ...init, headers });
   if (res.status === 401 && token) session.set(null);
   return res;
 }

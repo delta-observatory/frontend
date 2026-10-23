@@ -465,3 +465,19 @@ tr.job-err b { color: var(--st-miss); font-weight: 500; }
 
 .app.dataset-workspace { grid-template-rows: 30px minmax(0, 1fr); }
 .dataset-workspace > .rule, .dataset-workspace > .bench, .dataset-workspace > .inspector { display: none; }
+/* Optional sign-in leaves the public browsing session available. */
+.signin-overlay { position: fixed; inset: 0; z-index: 1000; background: rgba(0, 0, 0, .92); }
+.signin p { color: var(--dim); font-size: 14px; line-height: 1.5; }
+@media (max-width: 760px), (max-height: 520px) and (orientation: landscape) {
+  .signin { padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); overflow: auto; }
+  .signin form { width: min(100%, 360px); }
+  .signin input { min-height: 44px; font-size: 16px; }
+  .signin button { min-height: 44px; font-size: 14px; }
+  .compact .bar { gap: 6px; }
+  .compact .bar .brand { letter-spacing: .08em; font-size: 10px; }
+  .compact .bar .seg:not(.who) { display: none; }
+  .compact .bar .who { font-size: 12px; }
+  .compact .bar .toggle:not(.who) { display: none; }
+  .compact .details button, .compact .filter button, .dataset-browser button { min-height: 44px; }
+  .compact input:not([type=checkbox]):not([type=radio]), .compact select { min-height: 44px; font-size: 16px; }
+}

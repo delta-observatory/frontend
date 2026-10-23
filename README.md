@@ -79,6 +79,16 @@ Run search estimates and submits the selected observation or the current queue p
 Completed jobs enter the queue as the run progresses. A failed job does not replace an earlier completed result.
 All writes use the existing authenticated API. These controls do not confer scientific validation.
 
+## Mobile exploration
+
+Explore provides Signals, Charts, and Review views on phones and narrow windows.
+Selecting a signal opens Charts. The chart selector provides Light curve, Periodogram, and Phase fold.
+Filters open from a button above the signal list. Selection and chart settings remain available when switching views.
+
+Touch controls have a minimum height of 44 CSS pixels. Text fields use 16-pixel text to avoid automatic input zoom.
+Zoom buttons change the light-curve time scale. Move time enables drag navigation. Select time enables a range for the fold.
+Portrait and landscape layouts retain the same data and controls. Wide screens keep the three-column workspace.
+
 ## Dataset browser
 
 DATASETS provides search and filters for indexed datasets and datasets with registered experiments.
@@ -96,10 +106,16 @@ Repository documents require a person or service with `read`. Agent clients reta
 
 ## Sign-in
 
-The API needs a client token for each request. The first visit in a browser shows a sign-in panel with one token field.
-The browser keeps the token in localStorage and sends it as `Authorization: Bearer <token>`.
-The top bar shows the client name. "sign out" removes the token. A 401 response also signs out.
-The frontend proxy adds no token. An agent on the same computer therefore cannot act as the signed-in person through port 30871.
+The local GUI permits browsing without a token when the backend enables its read-only GUI channel.
+Anonymous requests use `/gui-api/`. Charts, datasets, records, and exports remain available.
+Search submission and saved reviews require sign-in. The top bar and review panel provide Sign in buttons.
+Without the optional channel, the frontend keeps its token sign-in screen.
+
+Sign-in sends a token to `/api/me` for validation. The browser stores a valid token in localStorage.
+Authenticated requests use `/api/` with `Authorization: Bearer <token>`. The proxy adds no token.
+Sign-in and sign-out reload the document. This removes cached results from the previous client identity.
+A 401 response also removes the stored token. An invalid sign-in leaves the browsing session available.
+The backend enforces permissions and campaign restrictions on every authenticated request.
 
 The permissions in `GET /api/me` decide which write controls are available. `src/api/access.ts` holds the rules.
 Without `run.submit`, the run form, retry, and cancellation are unavailable. Cancellation also needs the client's own run, or `admin`.
@@ -117,7 +133,7 @@ npm run build      # type check and production build in dist/
 ```
 
 The development server binds to `0.0.0.0:5173`.
-It sends `/api` to `http://localhost:30870`, the API NodePort on the k3s node. Set `DELTA_API_URL` to use another API.
+It sends `/api` and `/gui-api` to `http://localhost:30870`, the API NodePort on the k3s node. Set `DELTA_API_URL` to use another API.
 The address hash sets the first view, for example `#ra=266.4&dec=-28.9&fov=100`.
 Vite accepts IP addresses and `localhost`. It blocks other host names. Set `DELTA_ALLOWED_HOSTS` to a comma-separated list of host names to accept more.
 

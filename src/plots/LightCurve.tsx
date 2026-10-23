@@ -14,6 +14,7 @@ function timeLabel(reference?: string, scale?: string): string {
 
 interface Props {
   ev: Evidence;
+  dragMode?: "select" | "pan";
   fluxMode?: "normalized" | "flattened";
   view?: Range | null;
   onView?: (range: Range | null) => void;
@@ -25,7 +26,7 @@ interface Props {
 }
 
 /** Prepared flux against time. Points are observations. The dashed line is the fitted trend. Marks show predicted event times. */
-export function LightCurve({ ev, brush, cursorT, foldP, onBrush, onCursorT, fluxMode = "normalized", view, onView }: Props) {
+export function LightCurve({ ev, brush, cursorT, foldP, onBrush, onCursorT, fluxMode = "normalized", view, onView, dragMode = "select" }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const { surface, size } = usePlot(box);
   const p = ev.prepared, time = p.time!, flux = (fluxMode === "flattened" ? p.flattened_flux : p.normalized_flux)!, trend = p.trend!, best = ev.summary.best;
@@ -118,7 +119,7 @@ export function LightCurve({ ev, brush, cursorT, foldP, onBrush, onCursorT, flux
   return (
     <div
       className="plot" ref={box}
-      onPointerDown={(e) => { if (!surface) return; const p0 = toTime(e); if (!p0.inside) return; e.currentTarget.setPointerCapture(e.pointerId); if (e.shiftKey && onView) { pan.current = { px: p0.px, range: [frame.x0, frame.x1] }; return; } start.current = p0.px; (e.currentTarget as HTMLDivElement).dataset.t0 = String(p0.t); }}
+      onPointerDown={(e) => { if (!surface) return; const p0 = toTime(e); if (!p0.inside) return; e.currentTarget.setPointerCapture(e.pointerId); if ((e.shiftKey || dragMode === "pan") && onView) { pan.current = { px: p0.px, range: [frame.x0, frame.x1] }; return; } start.current = p0.px; (e.currentTarget as HTMLDivElement).dataset.t0 = String(p0.t); }}
       onPointerMove={(e) => {
         if (!surface) return;
         const q = toTime(e);

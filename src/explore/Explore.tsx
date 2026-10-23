@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useCompact } from "../layout";
+import { useSignIn } from "../SignIn";
 import { useAccess } from "../api/access";
 import { getJson } from "../api/client";
 import type { Page, RunDetail, RunSummary, TargetClass } from "../api/types";
@@ -8,7 +10,7 @@ import { Inspector } from "../Inspector";
 import { Fold } from "../plots/Fold";
 import { LightCurve } from "../plots/LightCurve";
 import { Periodogram } from "../plots/Periodogram";
-import { boundRange, type Range } from "../plots/viewport";
+import { boundRange, zoomRange, type Range } from "../plots/viewport";
 import { RecordsPanel } from "../records/RecordsPanel";
 import type { Selection } from "../records/Tables";
 import type { RecordLists } from "../records/useRecords";
@@ -36,6 +38,12 @@ function targetOf(s: Signal): Target {
 
 export function Explore(p: Props) {
   const access = useAccess();
+  const compact = useCompact();
+  const signIn = useSignIn();
+  const [mobilePanel, setMobilePanel] = useState<"signals" | "charts" | "review">("signals");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [plotView, setPlotView] = useState<"curve" | "periodogram" | "fold">("curve");
+  const [dragMode, setDragMode] = useState<"select" | "pan">("pan");
   const [sample, setSample] = useState(p.person ? "unconfirmed" : "all");
   const [query, setQuery] = useState("");
   const [dataset, setDataset] = useState("");
@@ -95,6 +103,13 @@ export function Explore(p: Props) {
     // A completed job is immutable. List refreshes must not reset chart interaction.
   }, [signal?.job_id]);
   const fresh = ev?.job.job_id === signal?.job_id ? ev : null;
+  const selectSignal = (id: string) => { setSelected(id); setMobilePanel("charts"); };
+  const zoomTime = (factor: number) => {
+    if (!fresh) return;
+    const extent: Range = [fresh.checks.time_min - 0.3, fresh.checks.time_max + 0.3];
+    const range = view ?? extent;
+    setView(zoomRange(range, (range[0] + range[1]) / 2, factor, extent));
+  };
   const index = signals.findIndex((s) => s.observation_id === selected);
   const step = (delta: number) => { const next = signals[index + delta]; if (next) setSelected(next.observation_id); };
   useEffect(() => {
@@ -120,9 +135,13 @@ export function Explore(p: Props) {
   };
   const refresh = () => { p.records.refresh(); setRevision((v) => v + 1); };
   const showRun = (id: string) => changeFilter(() => { setRunId(id); setSample("all"); setDataset(""); setQuery(""); });
-  return <main className="explore">
+  return <main className={`explore mobile-panel-${mobilePanel} mobile-plot-${plotView}${filtersOpen ? " mobile-filters-open" : ""}`}>
+    <nav className="explore-mobile-tabs" aria-label="Explore views">
+      {(["signals", "charts", "review"] as const).map((panel) => <button key={panel} className={mobilePanel === panel ? "on" : ""} aria-pressed={mobilePanel === panel} onClick={() => setMobilePanel(panel)}>{panel === "signals" ? `Signals${page ? ` (${page.total})` : ""}` : panel === "charts" ? "Charts" : "Review"}</button>)}
+    </nav>
     <aside className="signal-queue">
       <div className="explore-intro"><h1>Explore signals</h1><p>Inspect periodic dips from the box least squares (BLS) search.</p></div>
+      <button className="mobile-filter-toggle" aria-expanded={filtersOpen} onClick={() => setFiltersOpen((open) => !open)}>{filtersOpen ? "Hide filters" : "Filters"}{query && ` · ${query}`}</button>
       <div className="queue-filters">
         <label>Sample<select aria-label="Signal sample" value={sample} onChange={(e) => changeFilter(() => setSample(e.target.value))}>
           {p.person && <option value="unconfirmed">Without known-planet or binary labels</option>}<option value="all">All searched observations</option><option value="candidates">Linked candidate records</option></select></label>
@@ -138,7 +157,7 @@ export function Explore(p: Props) {
         {!loading && !error && !signals.length && <div className="empty">No completed searches match these filters. Select another sample or run.</div>}
         {signals.map((s, i) => {
           const c = s.candidate_ids.map((id) => candidateMap.get(id)).find(Boolean);
-          return <button key={s.observation_id} className={`signal-row${s.observation_id === selected ? " on" : ""}`} onClick={() => setSelected(s.observation_id)} aria-pressed={s.observation_id === selected}>
+          return <button key={s.observation_id} className={`signal-row${s.observation_id === selected ? " on" : ""}`} onClick={() => selectSignal(s.observation_id)} aria-pressed={s.observation_id === selected}>
             <span className="signal-name"><b>{s.target_id ?? s.observation_id.slice(0, 8)}</b><span>S{s.sector}</span></span>
             <span className="signal-values">{i + offset + 1}. P {number(s.period_days)} d <b>S/N {number(s.depth_snr, 1)}</b></span>
             <span className="signal-record">{c ? `${c.label ?? "Candidate"} · ${c.evidence_status?.status ?? "unreviewed"}` : s.candidate_ids.length ? "Linked candidate" : s.planet_name ?? s.label_class?.replaceAll("_", " ") ?? "No candidate record"}</span>
@@ -148,19 +167,22 @@ export function Explore(p: Props) {
       <div className="queue-paging"><button disabled={!offset || loading} onClick={() => setOffset(Math.max(0, offset - 100))}>Previous page</button><span>{page?.total ? `${offset + 1}–${offset + signals.length}` : "0"}</span><button disabled={loading || offset + signals.length >= (page?.total ?? 0)} onClick={() => setOffset(offset + 100)}>Next page</button></div>
     </aside>
     <section className="signal-workbench">
-      <header className="signal-heading"><div><span className="eyebrow">OBSERVATION · {signal?.dataset_id ?? "—"}</span><h2>{signal?.target_id ?? (signal ? signal.observation_id.slice(0, 8) : "Select a signal")} {signal && <span>· Sector {signal.sector}</span>}</h2></div><div className="signal-nav">{signal?.target_id && <button onClick={() => changeFilter(() => setQuery(signal.target_id!))}>This target’s sectors</button>}<button disabled={index <= 0} onClick={() => step(-1)}>← Previous</button><button disabled={index < 0 || index >= signals.length - 1} onClick={() => step(1)}>Next →</button></div></header>
+      <header className="signal-heading"><div><span className="eyebrow">OBSERVATION · {signal?.dataset_id ?? "—"}</span><h2>{signal?.target_id ?? (signal ? signal.observation_id.slice(0, 8) : "Select a signal")} {signal && <span>· Sector {signal.sector}</span>}</h2></div><div className="signal-nav">{signal?.target_id && <button onClick={() => { changeFilter(() => setQuery(signal.target_id!)); setMobilePanel("signals"); }}>This target’s sectors</button>}<button disabled={index <= 0} onClick={() => step(-1)}>← Previous</button><button disabled={index < 0 || index >= signals.length - 1} onClick={() => step(1)}>Next →</button></div></header>
       {signal && <div className="signal-metrics"><span>PERIOD<b>{number(signal.period_days, 6)} <small>d</small></b></span><span>DEPTH<b>{number(signal.depth == null ? null : signal.depth * 1e6, 0)} <small>ppm</small></b></span><span>DURATION<b>{number(signal.duration_days == null ? null : signal.duration_days * 24, 2)} <small>h</small></b></span><span>DEPTH S/N<b>{number(signal.depth_snr, 1)}</b></span><span>EVENTS<b>{number(signal.observed_transit_count, 0)}</b></span></div>}
       {fresh ? <>
+        <nav className="explore-plot-tabs" aria-label="Chart views">{(["curve", "periodogram", "fold"] as const).map((plot) => <button key={plot} className={plotView === plot ? "on" : ""} aria-pressed={plotView === plot} onClick={() => setPlotView(plot)}>{plot === "curve" ? "Light curve" : plot === "periodogram" ? "Periodogram" : "Phase fold"}</button>)}</nav>
+        <div className="touch-chart-tools"><button aria-label="Zoom into time" onClick={() => zoomTime(0.5)}>Zoom +</button><button aria-label="Zoom out of time" onClick={() => zoomTime(2)}>Zoom −</button><button className={dragMode === "pan" ? "on" : ""} aria-pressed={dragMode === "pan"} onClick={() => setDragMode("pan")}>Move time</button><button className={dragMode === "select" ? "on" : ""} aria-pressed={dragMode === "select"} onClick={() => setDragMode("select")}>Select time</button></div>
         <div className="chart-tools"><label>Flux<select aria-label="Flux display" value={fluxMode} onChange={(e) => setFluxMode(e.target.value as typeof fluxMode)}><option value="flattened">Flattened</option><option value="normalized">Normalized + trend</option></select></label><button disabled={!brush} onClick={() => brush && setView(boundRange(brush, [fresh.checks.time_min - 0.3, fresh.checks.time_max + 0.3]))}>Zoom selection</button><button onClick={() => { setView(null); setBrush(null); }}>Reset time</button><button onClick={() => event(-1)}>← Event</button><button onClick={() => event(1)}>Event →</button>{brush && <button onClick={() => setBrush(null)}>Clear selection</button>}</div>
-        <div className="explore-light"><LightCurve ev={fresh} brush={brush} cursorT={cursorT} foldP={foldP} onBrush={setBrush} onCursorT={setCursorT} view={view} onView={setView} fluxMode={fluxMode} /></div>
-        <div className="chart-hint">Wheel: zoom · Shift + drag: move time · Drag: select times for the fold · Double-click: reset time{view && <span> · View {view[0].toFixed(3)}–{view[1].toFixed(3)} d</span>}</div>
+        <div className="explore-light"><LightCurve ev={fresh} brush={brush} cursorT={cursorT} foldP={foldP} onBrush={setBrush} onCursorT={setCursorT} view={view} onView={setView} fluxMode={fluxMode} dragMode={compact ? dragMode : "select"} /></div>
+        <div className="chart-hint">{compact ? (dragMode === "pan" ? "Drag to move time. Use Select time to mark points for the fold." : "Drag to select times for the fold. Use Zoom selection to enlarge them.") : "Wheel: zoom · Shift + drag: move time · Drag: select times for the fold · Double-click: reset time"}{view && <span> · View {view[0].toFixed(3)}–{view[1].toFixed(3)} d</span>}</div>
         <div className="fold-tools"><button className={!foldP ? "on" : ""} onClick={() => choosePeriod(null)}>Stored P</button><button onClick={() => choosePeriod(fresh.summary.best.period / 2)}>P/2</button><button onClick={() => choosePeriod(fresh.summary.best.period * 2)}>2P</button><form onSubmit={(e) => { e.preventDefault(); const value = Number(periodText); if (Number.isFinite(value) && value >= 0.01 && value <= 10000) choosePeriod(value); }}><label>Display period <input aria-label="Display period" type="number" min="0.01" max="10000" step="any" value={periodText} placeholder={fresh.summary.best.period.toFixed(6)} onChange={(e) => setPeriodText(e.target.value)} /> d</label><button type="submit">Fold</button></form><label><input type="checkbox" checked={fullCycle} onChange={(e) => setFullCycle(e.target.checked)} /> Full cycle</label></div>
-        <div className="explore-plots"><Periodogram ev={fresh} foldP={foldP} cursorP={cursorP} onFoldP={choosePeriod} onCursorP={setCursorP} /><Fold ev={fresh} brush={brush} cursorT={cursorT} foldP={foldP} fullCycle={fullCycle} /></div>
+        <div className="explore-plots"><Periodogram ev={fresh} foldP={foldP} cursorP={cursorP} onFoldP={(period) => { choosePeriod(period); setPlotView("fold"); }} onCursorP={setCursorP} /><Fold ev={fresh} brush={brush} cursorT={cursorT} foldP={foldP} fullCycle={fullCycle} /></div>
         <div className="peak-tools"><span>Stored peaks:</span>{fresh.summary.peaks.map((pk, i) => <button key={i} onClick={() => choosePeriod(pk.period)}>{i + 1} · {pk.period.toFixed(4)} d</button>)}</div>
         <footer className="signal-source">{signal?.method_id} v{signal?.method_version} · run {signal?.run_id.slice(0, 8)} · job {signal?.job_id.slice(0, 8)}<br />{signal?.run_label ?? "Stored search"}. Display folds do not change this result.</footer>
       </> : <div className={evError ? "error-inline" : "empty"}>{evError ?? (signal ? "Loading the result artifacts…" : "Select an observation with a completed search.")}</div>}
     </section>
-    <aside className="explore-side"><nav className="explore-side-tabs">{(["review", "details", "search"] as const).map((s) => <button key={s} className={side === s ? "on" : ""} onClick={() => setSide(s)}>{s === "search" ? "Run search" : s[0]!.toUpperCase() + s.slice(1)}</button>)}</nav>
+    <aside className="explore-side">{compact && signal && <div className="mobile-review-target">{signal.target_id ?? "Observation"} · Sector {signal.sector}</div>}<nav className="explore-side-tabs">{(["review", "details", "search"] as const).map((s) => <button key={s} className={side === s ? "on" : ""} onClick={() => setSide(s)}>{s === "search" ? "Run search" : s[0]!.toUpperCase() + s.slice(1)}</button>)}</nav>
+      {!access.records && !access.runs && <div className="browse-notice"><p>Browsing is available without a token. Sign in to start searches or save reviews.</p><button onClick={signIn}>Sign in for changes</button></div>}
       {side === "review" && <><div className="review-actions"><p>Candidate records refer to this observation. Their evidence can differ from the chart run.</p>{signal?.candidate_ids.map((id) => <button key={id} className={record?.kind === "candidate" && record.id === id ? "on" : ""} onClick={() => setRecord({ kind: "candidate", id })}>{candidateMap.get(id)?.label ?? id.slice(0, 8)}</button>)}<button disabled={!fresh || !access.records} onClick={() => setRecord({ kind: "new-candidate" })}>New candidate from this result</button></div>{p.records.error && <div className="error-inline">{p.records.error}</div>}{!record && <div className="empty">No candidate record is selected. Create a record to retain this result for review.</div>}{p.base && record && <RecordsPanel key={signal?.job_id ?? "none"} selection={record} campaigns={campaigns} tasks={p.records.tasks} targetsById={targetsById} methods={p.base.methods} current={current} evidence={fresh} now={Date.now()} onSelect={setRecord} onDetail={() => {}} onExport={p.onExport} onChanged={refresh} />}</>}
       {side === "details" && (current ? <Inspector target={current} observation={fresh?.observation ?? null} ev={fresh} method={method} run={run} loading={!fresh && !evError} error={evError} changeMs={null} onNewCandidate={() => { setSide("review"); setRecord({ kind: "new-candidate" }); }} /> : <div className="empty">Select a signal.</div>)}
       {side === "search" && method && <RunPanel method={method} runs={p.runs} activeRunId={runId || signal?.run_id || null} selected={current} matches={targets} matchesLabel="This queue page" targetsById={targetsById} onShow={showRun} refreshRuns={p.refreshRuns} onStartedRun={(r) => { p.onStartedRun(r); showRun(r.id); }} onCompare={p.onCompare} onExport={(r) => p.onExport({ kind: "run", id: r.id, label: r.label ?? r.id.slice(0, 8) })} />}

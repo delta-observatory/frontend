@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useSignIn } from "./SignIn";
 import { Explore } from "./explore/Explore";
 import { DatasetBrowser } from "./datasets/Browser";
 import { Catalogue, type Segment } from "./Catalogue";
@@ -369,8 +370,9 @@ function Workbench({ me }: { me: Me | null }) {
   );
   const exportDialog = exporting && <ExportDialog subject={exporting} onClose={() => setExporting(null)} />;
   const access = useAccess();
+  const signIn = useSignIn();
   const readOnly = access.known && !access.runs && !access.records;
-  const whoButton = <button className="seg toggle who" onClick={() => session.set(null)} title="Sign out of this browser">{me ? me.name : "…"}{readOnly ? " · read only" : ""} · sign out</button>;
+  const whoButton = me?.anonymous ? <button className="seg toggle who" onClick={signIn}>Sign in</button> : <button className="seg toggle who" onClick={() => session.set(null)} title="Sign out of this browser">{me ? me.name : "…"}{readOnly ? " · read only" : ""} · sign out</button>;
   const motionButton = <button className="seg toggle" onClick={() => motion.set(mode === "animated" ? "reduced" : "animated")} title="Reduced motion removes camera animation">motion <b>{mode}</b></button>;
   const filtered = useMemo(() => filterCandidates(recordLists.candidates ?? [], candFilter, (c) => candidateTarget(c, targetsById)), [recordLists.candidates, candFilter, targetsById]);
   const writers = useMemo(() => [...new Set((recordLists.candidates ?? []).map((c) => c.actor.name))].sort(), [recordLists.candidates]);
@@ -409,7 +411,7 @@ function Workbench({ me }: { me: Me | null }) {
           <button onClick={() => step(1)} aria-label="Next target">›</button>
         </div>
         <nav className="mtabs">
-          {TABS.map(([k, label]) => <button key={k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}>{label}</button>)}
+          {TABS.map(([k, label]) => <button key={k} className={tab === k ? "on" : ""} onClick={() => { setTab(k); if (k === "explore") setWorkspace("explore"); }}>{label}</button>)}
         </nav>
         <div className="pane">
           {tab === "datasets" && <div className="pane-fill">{datasetBrowser}</div>}

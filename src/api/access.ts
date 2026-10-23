@@ -2,6 +2,7 @@ import { createContext, useContext } from "react";
 
 /** The client of the token, from GET /api/me. */
 export interface Me {
+  anonymous?: boolean;
   id: string;
   name: string;
   kind: string;

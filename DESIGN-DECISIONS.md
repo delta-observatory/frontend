@@ -32,7 +32,7 @@ Richard directs the visual style and the interaction design.
 | Status colours | The API rule `period-agreement/1` sets each marker colour. Its thresholds are display bins, not validation criteria. |
 | Active run | One run at a time supplies the sky colours, plots, and measurements. "Show results" selects it, and the browser remembers it. Without a choice, the API rule `default-run/1` selects the run with the most complete jobs. The newest run wins a tie. A run that finishes does not replace the shown run. |
 | Tools | React, Canvas 2D, TypeScript, and Vite. The sky, targets, and plots render on the CPU. Tables, the inspector, and forms are React. |
-| API access | In development, a Vite proxy sends `/api` to the API NodePort, `http://localhost:30870` by default. The deployed build uses NodePort 30871 and its own proxy to the API service. CORS stays disabled. |
+| API access | In development, a Vite proxy sends `/api` and `/gui-api` to the API NodePort, `http://localhost:30870` by default. The deployed build uses NodePort 30871 and its own proxy to the API service. CORS stays disabled. |
 | Shape | Sharp corners on all panels, controls, and markers that have a box shape. |
 | Density | A precise and dense layout. |
 | Character | Technical and restrained. The interface must not look like a generic web application template. |
@@ -96,10 +96,19 @@ No design decision is open.
 
 A left queue lists completed BLS signals. The center holds the light curve, periodogram, and phase fold.
 The right panel provides Review, Details, and Run search. Narrow windows place the review panel below the charts.
-Phones place the queue above the charts. Each chart keeps the full available width.
+Phones provide Signals, Charts, and Review views. Selecting a signal opens Charts.
+The chart selector shows one full-width plot at a time. Touch controls have a minimum height of 44 CSS pixels.
+Zoom buttons and separate Move time and Select time controls support touch input.
 
 The queue orders stored depth signal-to-noise ratios. Its order makes no planet probability or detection claim.
 The default sample excludes known-planet and eclipsing-binary labels. People can select all searched observations or linked candidate records.
 Time zoom, time selection, alternate periods, full-cycle folds, and sector filters support visual investigation.
 Candidate records keep their cited evidence. The chart identifies its own run and job independently.
 Search controls submit the selected observation or the current queue page after an API estimate.
+
+## Browsing and sign-in
+
+The local GUI permits anonymous browsing through an optional read-only backend channel.
+Charts, datasets, and records do not need a token. Search submission and saved reviews require sign-in.
+The authenticated API keeps its existing token permissions and campaign restrictions.
+The browser reloads after each identity change to remove cached results from the previous client.
