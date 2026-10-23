@@ -2,15 +2,15 @@
 
 This repository is one component of [Delta Observatory](https://github.com/delta-observatory/delta-observatory). The entry repository describes the application and restores every component.
 
-The interactive frontend for Delta Observatory: React, Three.js through React Three Fiber, TypeScript, and Vite.
+The interactive frontend for Delta Observatory: React, Canvas 2D, TypeScript, and Vite.
 [DESIGN-DECISIONS.md](DESIGN-DECISIONS.md) records the agreed design. [DESIGN.md](https://github.com/delta-observatory/delta-observatory/blob/main/DESIGN.md) sets the requirements.
 
 ## Current scope
 
 - Layout L2 shell: top bar, sky, movable rule, workbench, and inspector.
-- Workspaces in the top bar: SKY, ANALYSIS, and EVIDENCE. DATASETS is a disabled tab. ANALYSIS and EVIDENCE put an opaque layer over the sky. The sky stays loaded under it.
+- Workspaces in the top bar: SKY, DATASETS, ANALYSIS, and EVIDENCE. DATASETS uses the full work area. ANALYSIS and EVIDENCE cover the sky area.
 - Compact layout for phones and narrow windows: the sky on top, a selection strip with previous and next buttons, and tabs.
-  The tabs are Targets, Curve, Pgram, Fold, Details, Run, Records, and Compare. The tab strip scrolls. Touch: one finger turns the sky, two fingers zoom, and a tap selects.
+  The tabs are Targets, Datasets, Curve, Pgram, Fold, Details, Run, Records, and Compare. The tab strip scrolls. Touch: one finger turns the sky, two fingers zoom, and a tap selects.
 - Sky sphere in the equatorial frame with no site. North stays up. A drag turns the sky, and the wheel zooms.
 - Stars to magnitude 8. Stars fainter than magnitude 6 fade in as the view zooms in.
 - Constellation lines, an equatorial grid, the ecliptic, the galactic plane, and a drawn Milky Way model.
@@ -23,7 +23,7 @@ The interactive frontend for Delta Observatory: React, Three.js through React Th
 - Motion setting in the top bar. "reduced" removes camera animation. The default follows the system setting.
 - Performance display: catalogue load time, time to the first sky frame, frame time, and render CPU time.
 
-- Workbench plots for the selected target, with WebGL data layers:
+- Workbench plots for the selected target, with CPU Canvas 2D data layers:
   - Light curve: prepared flux, fitted trend, predicted event times, and excluded rows. A drag selects a time range.
   - Periodogram: BLS power on a log period axis, stored peaks, aliases, and the reference period. A click on a peak sets a display period.
   - Phase fold: points, binned means with standard errors, and the BLS box model. A display fold has no box model and says that it is not a stored result.
@@ -52,6 +52,21 @@ The interactive frontend for Delta Observatory: React, Three.js through React Th
 - Run controls: cancel for queued and running jobs, Cancel run, Retry failed and cancelled, Compare with…, and Export…. The job table shows attempts, the failure kind and message, and the cancel, retry, and restart limits.
 - Export dialog: records only or with artifact files, with counts and stored sizes from the API. The download gives the manifest SHA-256 from the response header. "Check files" checks the size and SHA-256 of every manifest entry in the browser.
 
+## Dataset browser
+
+DATASETS provides search and filters for indexed datasets and datasets with registered experiments.
+Selecting a dataset opens Observations, Runs, and Experiments tabs.
+Observation inspection and run selection return to SKY with the selected dataset.
+Runs can span datasets. The run table shows whole-run job counts and excludes index jobs without observation inputs.
+
+Catalog descriptions and acquisition scopes are dated documentation. They do not establish current file availability.
+Application observation counts come from the database index. The browser does not scan `raw/`.
+Experiments link through explicit dataset references in registered `experiment.json` files.
+Each experiment retains its index status, result, dataset role, and method scope.
+Reports appear as plain text. The browser does not execute their HTML or load their embedded resources.
+Missing sources produce an unavailable message. An unavailable experiment source has an unknown count.
+Repository documents require a person or service with `read`. Agent clients retain their campaign-scoped observation and run views.
+
 ## Sign-in
 
 The API needs a client token for each request. The first visit in a browser shows a sign-in panel with one token field.
@@ -79,8 +94,12 @@ It sends `/api` to `http://localhost:30870`, the API NodePort on the k3s node. S
 The address hash sets the first view, for example `#ra=266.4&dec=-28.9&fov=100`.
 Vite accepts IP addresses and `localhost`. It blocks other host names. Set `DELTA_ALLOWED_HOSTS` to a comma-separated list of host names to accept more.
 
-The sky view needs WebGL 2. Without it, the sky area shows the browser's reason, and the other panels still work.
-Chromium started with `--disable-gpu` has no WebGL.
+The sky and plots use Canvas 2D with `willReadFrequently: true`, which requests software rendering.
+They need no WebGL context. Chromium with GPU acceleration disabled supports the complete inspection workflow.
+The renderer preserves all scientific data points and double precision. It skips non-finite points and preserves line gaps.
+The sky caches its background until the camera or size changes. Plot pointer movement reuses the data layer.
+The decorative Milky Way uses a bounded image grid. Canvas resolution uses at most two device pixels per CSS pixel.
+CPU rendering does not establish compliance with the animation performance targets.
 
 `.npmrc` sets exact versions. npm 10.9.8 fails to add `vitest` with the error `Cannot read properties of null (reading 'edgesOut')`.
 To add or change `vitest`, run `npm install -D vitest@<version> --legacy-peer-deps`. `npm ci` works without the flag.
@@ -100,11 +119,14 @@ Research agents use the same API. Each value that the frontend shows comes from 
 | Endpoint | Use |
 |---|---|
 | `GET /api/health` | API state in the top bar. |
-| `GET /api/datasets` | Dataset name and ready count. |
+| `GET /api/datasets` | Application dataset states and indexed observation counts. |
+| `GET /api/catalog` | Dataset descriptions and registered experiment references, with explicit source availability. |
+| `GET /api/catalog/documents/{collection}/{id}/README.md` | Authenticated plain-text report with byte count and SHA-256. |
+| `GET /api/observations?dataset_id=` | Paginated observations and state filters in DATASETS. |
 | `GET /api/targets` | The target table, the sky markers, and the all-sky map: sky position, magnitude, cadence, labels, the active run's values, and the `period-agreement/1` status. |
 | `GET /api/runs/default` | The active run when the browser has no choice (rule `default-run/1`). |
 | `GET /api/observations/{id}` | Header, labels, and the light-curve artifact of the selected target. |
-| `GET /api/runs` | Runs with job states. With `observation_id`, the runs that hold the selected observation: the workbench offers them when the shown run has no job for it. |
+| `GET /api/runs` | Runs with job states. `dataset_id` selects runs with visible input observations from one dataset. With `observation_id`, the runs that hold the selected observation: the workbench offers them when the shown run has no job for it. |
 | `GET /api/runs/{id}/results?observation_id=` | Measurements, artifacts, diagnostics, software, and resources of the selected target's job. |
 | `POST /api/runs/estimate` | The run form's work estimate and authoritative parameter check. |
 | `GET /api/methods` | Methods with their parameter schemas, defaults, cross-field rules, and scientific status. |
@@ -158,17 +180,18 @@ The backend owns these responses. The measurement fields follow `database/contra
 | `src/data/search.ts` | Search parser, grammar `target-query/1`. `search.test.ts` tests it. |
 | `src/parity.test.ts` | Parity of the search, the fold, and the parameter checks with the API vectors. |
 | `src/data/evidence.ts` | Artifact loading for one result, with a cache of 12 results. |
-| `src/plots/surface.ts` | Plot layers: 2D axes, WebGL data, 2D marks. |
+| `src/plots/surface.ts` | CPU Canvas 2D layers for axes, data, and interactive marks. |
 | `src/plots/fold.ts` | Phase fold and bins, rule `fold-window/1`. `fold.test.ts` tests it. |
 | `src/plots/LightCurve.tsx`, `Periodogram.tsx`, `Fold.tsx` | The three workbench plots. |
 | `src/sky/math.ts` | Sky geometry and the stereographic projection. `math.test.ts` tests it. |
 | `src/sky/camera.ts` | View state: view center, north-up basis, field of view, and camera turns. |
-| `src/sky/shaders.ts` | GLSL for the projection and each sky layer. |
-| `src/sky/layers.tsx` | Grid, constellation lines, stars, targets, and the Milky Way. |
+| `src/sky/cpu.ts` | Cached CPU rendering of the sky, stars, lines, targets, and decorative Milky Way. |
+| `src/canvas.ts` | Software context requests and canvas resolution limit. |
+| `src/datasets/` | Dataset browser, source descriptions, observations, runs, and registered experiment reports. |
 | `src/sky/SkyView.tsx` | Canvas, input, tooltip, selection mark, and the sky display. |
 | `src/sky/AllSky.tsx` | All-sky map. |
 | `src/perf/frames.ts` | Frame time measurement. |
-| `src/theme.ts` | Colour tokens for WebGL and CSS. |
+| `src/theme.ts` | Colour tokens for Canvas 2D and CSS. |
 
 ## License
 

@@ -1,47 +1,10 @@
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
 import type { Target } from "../data/catalogue";
 import { frameStats, marks, recordFrame } from "../perf/frames";
-import { colors } from "../theme";
 import { camera, useCamera } from "./camera";
-import { Constellations, Grid, MilkyWay, Stars, Targets, type StarColumns } from "./layers";
-import { clamp, project, projectionScale, vecToEq } from "./math";
-import { skyUniforms } from "./uniforms";
-
-/** Copies the camera state and the canvas size into the shared uniforms. */
-function SkySync() {
-  const size = useThree((s) => s.size), dpr = useThree((s) => s.viewport.dpr), invalidate = useThree((s) => s.invalidate);
-  useEffect(() => {
-    const apply = () => {
-      const { basis, fov } = camera.get();
-      skyUniforms.uR.value.set(...basis.r);
-      skyUniforms.uU.value.set(...basis.u);
-      skyUniforms.uF.value.set(...basis.f);
-      skyUniforms.uK.value = projectionScale(size.width, fov);
-      skyUniforms.uRes.value.set(size.width, size.height);
-      skyUniforms.uDpr.value = dpr;
-      skyUniforms.uZoom.value = clamp(110 / fov, 0.8, 2.2);
-      // Fainter stars appear as the view zooms in: magnitude 6 at 110 degrees, magnitude 8 at 40 degrees.
-      skyUniforms.uMagLimit.value = 6 + 2 * clamp((110 - fov) / 70, 0, 1);
-      invalidate();
-    };
-    apply();
-    return camera.subscribe(apply);
-  }, [size.width, size.height, dpr, invalidate]);
-  return null;
-}
-
-/** Renders the scene and measures the CPU time of each render. */
-function FrameProbe({ ready }: { ready: boolean }) {
-  useFrame(({ gl, scene, camera: cam }) => {
-    const t = performance.now();
-    gl.render(scene, cam);
-    const end = performance.now();
-    recordFrame(end, end - t);
-    if (ready && marks.firstSky == null) marks.firstSky = end;
-  }, 1);
-  return null;
-}
+import type { StarColumns } from "./types";
+import { SkyRenderer } from "./cpu";
+import { project, projectionScale, vecToEq } from "./math";
 
 interface Props {
   targets: Target[];
@@ -133,15 +96,7 @@ export function SkyView({ targets, stars, lines, hover, selected, matches, onHov
 
   return (
     <div className="sky" ref={wrap} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerLeave={onPointerLeave} onPointerCancel={onPointerCancel} style={{ cursor: tip ? "pointer" : "grab" }}>
-      <Canvas frameloop="demand" dpr={[1, 2]} flat linear gl={{ antialias: true, alpha: false }} onCreated={({ gl }) => gl.setClearColor(colors.bg)}>
-        <SkySync />
-        <MilkyWay />
-        <Grid />
-        {lines && <Constellations lines={lines} />}
-        {stars && <Stars stars={stars} />}
-        <Targets targets={targets} hover={hover} selected={selected} matches={matches} />
-        <FrameProbe ready={targets.length > 0 && stars != null} />
-      </Canvas>
+      <CpuSky targets={targets} stars={stars} lines={lines} hover={hover} selected={selected} matches={matches} />
       <SkyHud />
       {flagged && flagged.size > 0 && <CandidateMarks targets={targets} flagged={flagged} wrap={wrap} />}
       <SelectionMark target={targets.find((t) => t.id === selected) ?? null} wrap={wrap} />
@@ -155,6 +110,40 @@ export function SkyView({ targets, stars, lines, hover, selected, matches, onHov
       )}
     </div>
   );
+}
+
+/** Demand rendering keeps the background idle during pointer readouts and table inspection. */
+function CpuSky(props: Pick<Props, "targets" | "stars" | "lines" | "hover" | "selected" | "matches">) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const latest = useRef(props);
+  latest.current = props;
+  const invalidate = useRef<() => void>(() => {});
+  useEffect(() => {
+    const canvas = ref.current!, renderer = new SkyRenderer(canvas, props.stars, props.lines);
+    let pending: number | null = null;
+    const draw = () => {
+      pending = null;
+      const { targets, matches, selected, hover, stars } = latest.current;
+      const { basis, fov } = camera.get(), w = canvas.clientWidth, h = canvas.clientHeight;
+      const start = performance.now();
+      renderer.draw(basis, fov, projectionScale(w, fov), w, h, targets, matches, selected, hover);
+      const end = performance.now();
+      recordFrame(end, end - start);
+      if (w > 0 && h > 0 && targets.length && stars && marks.firstSky == null) marks.firstSky = end;
+    };
+    const request = () => { if (pending == null) pending = requestAnimationFrame(draw); };
+    invalidate.current = request;
+    const unsubscribe = camera.subscribe(request), observer = new ResizeObserver(request);
+    observer.observe(canvas);
+    request();
+    return () => {
+      unsubscribe(); observer.disconnect();
+      if (pending != null) cancelAnimationFrame(pending);
+      renderer.dispose(); invalidate.current = () => {};
+    };
+  }, [props.stars, props.lines]);
+  useEffect(() => invalidate.current(), [props.targets, props.matches, props.selected, props.hover]);
+  return <canvas ref={ref} className="sky-canvas" aria-label="Interactive sky map" />;
 }
 
 function SkyHud() {

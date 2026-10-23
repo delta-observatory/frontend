@@ -14,7 +14,7 @@ Richard directs the visual style and the interaction design.
 | Sky view | The interface shows a star field on a dome. Observations, results, and tests show as overlays on the sky. |
 | Sky frame | A sky sphere in equatorial coordinates with no observing site and no horizon. The camera is at the center. Every target is visible. |
 | Layout | L2, sky over workbench. The sky fills the top part, with the catalogue on it. The workbench below holds a full-width light curve, the periodogram, the phase fold, and the inspector. A movable rule sets the space between the two parts. |
-| Compact layout | Phones and windows narrower than 760 px, and phones in landscape. The sky stays on top, with the all-sky map. A strip shows the selection with previous and next buttons. Tabs hold Targets, Curve, Periodogram, Fold, and Details. Each plot uses the full width. In landscape, the sky is on the left and the tabs are on the right. |
+| Compact layout | Phones and windows narrower than 760 px, and phones in landscape. The sky stays on top, with the all-sky map. A strip shows the selection with previous and next buttons. Tabs include Targets, Datasets, Curve, Periodogram, Fold, and Details. Datasets uses the full work area. Each plot uses the full width. In landscape, the sky is on the left and the tabs are on the right. |
 | Touch | One finger turns the sky. Two fingers zoom. A tap selects a target. A drag on the light curve selects a time range, and a tap on a periodogram peak sets a display period. Buttons clear the time range and return to the stored fold. A row tap in Targets opens the Curve tab. |
 | Selection | A click on a sky marker or a catalogue row selects the target. The sky turns to the target in 0.3–0.9 s. **j** and **k** select the next and previous target in the filtered list. |
 | Navigation | North up. A drag turns the sky, and the wheel zooms. **F** turns the sky to the selected target. |
@@ -30,13 +30,13 @@ Richard directs the visual style and the interaction design.
 | Run form | Built from the method's parameter schema: units, defaults, limits, and cross-field rules. Changed values have an amber mark. Inputs: the selected target or all search matches. The API estimate shows trial periods and worker time before the start. |
 | Status colours | The API rule `period-agreement/1` sets each marker colour. Its thresholds are display bins, not validation criteria. |
 | Active run | One run at a time supplies the sky colours, plots, and measurements. "Show results" selects it, and the browser remembers it. Without a choice, the API rule `default-run/1` selects the run with the most complete jobs. The newest run wins a tie. A run that finishes does not replace the shown run. |
-| Tools | React, Three.js through React Three Fiber, TypeScript, and Vite. The sky, the targets, and the plots render with WebGL. Tables, the inspector, and forms are React. |
+| Tools | React, Canvas 2D, TypeScript, and Vite. The sky, targets, and plots render on the CPU. Tables, the inspector, and forms are React. |
 | API access | In development, a Vite proxy sends `/api` to the API NodePort, `http://localhost:30870` by default. The deployed build uses NodePort 30871 and its own proxy to the API service. CORS stays disabled. |
 | Shape | Sharp corners on all panels, controls, and markers that have a box shape. |
 | Density | A precise and dense layout. |
 | Character | Technical and restrained. The interface must not look like a generic web application template. |
 | Numbers | Monospace type with tabular figures for all numbers. |
-| Workspaces | Top-bar tabs SKY, DATASETS, ANALYSIS, and EVIDENCE. DATASETS is not implemented. ANALYSIS and EVIDENCE replace the sky area with a full-width table. The workbench and the right column stay. |
+| Workspaces | Top-bar tabs SKY, DATASETS, ANALYSIS, and EVIDENCE. DATASETS uses the full work area, with a dataset list and Observations, Runs, and Experiments tabs. ANALYSIS and EVIDENCE replace the sky area. |
 | Research records | The catalogue panel has three segments: Targets, Candidates, and Tasks. The right column has a Records tab for one candidate or one agent task. Phones have a Records tab. The EVIDENCE workspace holds a full-width candidate table with filters for long lists. |
 | Candidate marks | A dashed square on the sky and on the all-sky map marks a target that a candidate record refers to. The square encodes no status. |
 | Record vocabulary | One meaning for each mark. Status chips are monochrome: dotted border for unreviewed or unchecked, solid for supported, matched, or unmatched, dashed for ambiguous, and struck text for rejected. The text gives the status. The evidence axis and the identity axis always show separately, each with its basis and actor. A decision of judge model has a hatched MODEL JUDGMENT tag. Writers: ● person, ◆ agent, ■ service. Tier: solid PLATFORM, dashed LAB ↗ for an external proposal, and IMPORTED for an import route. A blue outline marks a display calculation and names its rule. A striped mark shows a value that a campaign withholds from its agents. The tess-bls warning box shows next to method values. |
@@ -76,7 +76,7 @@ A binary artifact format is a possible fix if the JSON artifacts miss the 400 ms
 | Item | Value |
 |---|---|
 | Computer | The workstation that runs the k3s node on the LAN. |
-| Browser | Chromium with GPU rendering and WebGL 2. A Chromium started with `--disable-gpu` has no WebGL, and the sky view then shows the browser's reason. |
+| Browser | Chromium with GPU acceleration disabled. The sky and plots use software Canvas 2D. WebGL is not required. |
 | Graphics card | NVIDIA GeForce RTX 3080, 10 GiB. |
 | Screen | No fixed resolution. The layout fits the browser window. |
 

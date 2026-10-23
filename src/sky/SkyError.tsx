@@ -1,12 +1,12 @@
 import { Component, type ReactNode } from "react";
 
-/** Message in the sky area when WebGL is not available. The table, search, and inspector still work. */
+/** Keep renderer failures local to the sky. */
 export function SkyUnavailable({ reason }: { reason: string }) {
   return (
     <div className="sky-unavailable">
-      <b>The sky view needs WebGL 2. This browser did not create a WebGL 2 context.</b>
+      <b>The sky view could not render.</b>
       <span>Browser reason: {reason}</span>
-      <span>Open chrome://gpu and look at "WebGL2" under Graphics Feature Status. A browser started with --disable-gpu has no WebGL.</span>
+      <span>The table and inspection controls remain available.</span>
     </div>
   );
 }

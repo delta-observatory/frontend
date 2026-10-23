@@ -1,5 +1,5 @@
 // Colour tokens for direction A. main.tsx copies them into CSS custom properties,
-// so WebGL layers and HTML use the same values.
+// so canvas layers and HTML use the same values.
 
 export const colors = {
   bg: "#03050a",

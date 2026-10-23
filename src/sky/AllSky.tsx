@@ -1,9 +1,10 @@
 import { useEffect, useRef, type MouseEvent, type RefObject } from "react";
 import { statusOf, type Target } from "../data/catalogue";
 import { motion } from "../motion";
+import { canvasDpr, context2d } from "../canvas";
 import { colors } from "../theme";
 import { camera, useCamera } from "./camera";
-import type { StarColumns } from "./layers";
+import type { StarColumns } from "./types";
 import { clamp, eqToVec, projectionScale, RAD, unproject, vecToEq } from "./math";
 
 const STATUS = { match: colors.stMatch, near: colors.stNear, miss: colors.stMiss, signal: colors.stSignal, eb: colors.stEb, quiet: colors.stQuiet };
@@ -41,12 +42,12 @@ export function AllSky({ targets, stars, selected, matches, sky, flagged }: Prop
   const { basis, fov } = useCamera();
 
   useEffect(() => {
-    const c = ref.current!, dpr = devicePixelRatio || 1, r = c.getBoundingClientRect();
+    const c = ref.current!, dpr = canvasDpr(), r = c.getBoundingClientRect();
     if (c.width !== Math.round(r.width * dpr)) { c.width = Math.round(r.width * dpr); c.height = Math.round(r.height * dpr); background.current = null; }
     const w = r.width, h = r.height, H = hammer(w, h);
     if (!background.current && stars) {
       const b = document.createElement("canvas"); b.width = c.width; b.height = c.height;
-      const g = b.getContext("2d")!; g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const g = context2d(b); g.setTransform(dpr, 0, 0, dpr, 0, 0);
       g.fillStyle = "#04060b"; g.fillRect(0, 0, w, h);
       g.beginPath(); g.ellipse(H.cx, H.cy, H.R * 2 * Math.SQRT2, H.R * Math.SQRT2, 0, 0, 2 * Math.PI); g.fillStyle = colors.bg; g.fill(); g.strokeStyle = "#26303d"; g.stroke();
       g.strokeStyle = "#111821";
@@ -58,7 +59,7 @@ export function AllSky({ targets, stars, selected, matches, sky, flagged }: Prop
       for (const [ra, lab] of [[0, "0h"], [90, "6h"], [270, "18h"]] as const) { const p = H.fwd(ra, 0); g.fillText(lab, p[0], p[1] - 3); }
       background.current = b;
     }
-    const ctx = c.getContext("2d")!;
+    const ctx = context2d(c);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     if (background.current) ctx.drawImage(background.current, 0, 0); else { ctx.fillStyle = "#04060b"; ctx.fillRect(0, 0, c.width, c.height); }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);

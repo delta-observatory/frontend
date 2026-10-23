@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { DatasetBrowser } from "./datasets/Browser";
 import { Catalogue, type Segment } from "./Catalogue";
 import { accessOf, AccessContext, useAccess, type Me } from "./api/access";
 import { getJson, session } from "./api/client";
@@ -25,12 +26,9 @@ import { marks } from "./perf/frames";
 import { AllSky } from "./sky/AllSky";
 import { RunsHolding } from "./runs/RunsHolding";
 import { camera } from "./sky/camera";
-import type { StarColumns } from "./sky/layers";
-import { SkyBoundary, SkyUnavailable } from "./sky/SkyError";
+import type { StarColumns } from "./sky/types";
+import { SkyBoundary } from "./sky/SkyError";
 import { SkyView } from "./sky/SkyView";
-import { webgl2Status } from "./sky/webgl";
-
-const WEBGL = webgl2Status();
 
 async function getStatic<T>(path: string): Promise<T> {
   const res = await fetch(path);
@@ -38,9 +36,9 @@ async function getStatic<T>(path: string): Promise<T> {
   return (await res.json()) as T;
 }
 
-type Tab = "targets" | "light" | "pgram" | "fold" | "details" | "run" | "records" | "compare";
-const TABS: [Tab, string][] = [["targets", "Targets"], ["light", "Curve"], ["pgram", "Pgram"], ["fold", "Fold"], ["details", "Details"], ["run", "Run"], ["records", "Records"], ["compare", "Compare"]];
-type Workspace = "sky" | "analysis" | "evidence";
+type Tab = "datasets" | "targets" | "light" | "pgram" | "fold" | "details" | "run" | "records" | "compare";
+const TABS: [Tab, string][] = [["targets", "Targets"], ["datasets", "Datasets"], ["light", "Curve"], ["pgram", "Pgram"], ["fold", "Fold"], ["details", "Details"], ["run", "Run"], ["records", "Records"], ["compare", "Compare"]];
+type Workspace = "sky" | "datasets" | "analysis" | "evidence";
 type Side = "details" | "run" | "records" | "compare";
 
 /** The time, once a second while `on`. Lease countdowns use it. */
@@ -64,6 +62,8 @@ function Workbench({ me }: { me: Me | null }) {
   // The run that the sky, plots, and measurements show. This browser remembers the choice.
   const [activeRunId, setActiveRunIdState] = useState<string | null>(() => { try { return localStorage.getItem("delta.activeRun"); } catch { return null; } });
   const setActiveRunId = (id: string) => { setActiveRunIdState(id); try { localStorage.setItem("delta.activeRun", id); } catch { /* The choice stays for this page only. */ } };
+  const [browserRun, setBrowserRun] = useState<RunSummary | null>(null);
+  const pendingFocus = useRef<string | null>(null);
   const [targets, setTargets] = useState<Target[]>([]);
   const [targetsLoadMs, setTargetsLoadMs] = useState<number | null>(null);
   // Undefined until the API answers. Null when no analysis run has a complete job.
@@ -117,13 +117,15 @@ function Workbench({ me }: { me: Me | null }) {
   // Without a remembered choice, the API selects the run (rule default-run/1).
   useEffect(() => {
     if (!base) return;
-    loadDefaultRun(base.dataset?.id ?? null).then(setDefaultRun, (e: Error) => setError(e.message));
+    let live = true;
+    loadDefaultRun(base.dataset?.id ?? null).then((r) => { if (live) setDefaultRun(r); }, (e: Error) => { if (live) setError(e.message); });
+    return () => { live = false; };
   }, [base]);
   // The active run: the choice in the run panel, or the API default.
   const activeRun = useMemo(() => {
     if (!runs || !base) return null;
-    return runs.find((r) => r.id === activeRunId) ?? (defaultRun ? runs.find((r) => r.id === defaultRun.id) ?? defaultRun : null);
-  }, [runs, base, activeRunId, defaultRun]);
+    return runs.find((r) => r.id === activeRunId) ?? (browserRun?.id === activeRunId ? browserRun : null) ?? (defaultRun ? runs.find((r) => r.id === defaultRun.id) ?? defaultRun : null);
+  }, [runs, base, activeRunId, defaultRun, browserRun]);
   // Keep the first default. A run that completes later does not replace the results on screen.
   useEffect(() => { if (activeRun && activeRun.id !== activeRunId) setActiveRunIdState(activeRun.id); }, [activeRunId, activeRun]);
   // Results reload when the job states of the active run change, so a running run fills in.
@@ -137,9 +139,14 @@ function Workbench({ me }: { me: Me | null }) {
       (e: Error) => { if (live) setError(e.message); });
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [base, runKey]);
+  }, [base, runKey, runs === null, defaultRun === undefined]);
   const runId = activeRun?.id ?? null;
   const targetsById = useMemo(() => new Map(targets.map((t) => [t.id, t])), [targets]);
+  useEffect(() => {
+    if (!pendingFocus.current) return;
+    const target = targets.find((t) => t.id === pendingFocus.current);
+    if (target?.v) { camera.flyTo(target.v, motion.get() === "animated"); pendingFocus.current = null; }
+  }, [targets]);
   const method = activeRun && base ? base.methods.get(`${activeRun.method_id}/${activeRun.method_version}`) ?? null : base ? [...base.methods.values()].find((m) => m.kind === "analysis") ?? null : null;
   const showRun = (id: string) => { setActiveRunId(id); setFocusRunId(null); setEvidence(null); };
   // Research records load after the sky and the catalogue.
@@ -248,6 +255,7 @@ function Workbench({ me }: { me: Me | null }) {
   // Keys: / search, j and k next and previous, f turn to the selection, + and − zoom.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (workspace === "datasets" || (compact && tab === "datasets")) return;
       if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
       if (e.key === "Escape" && !(e.target instanceof HTMLInputElement)) { setBrush(null); setFoldP(null); return; }
       if (e.target instanceof HTMLInputElement) {
@@ -288,11 +296,33 @@ function Workbench({ me }: { me: Me | null }) {
       onShow={showRun} refreshRuns={refreshRuns} onStartedRun={expectRun} onCompare={openCompare}
       onExport={(r) => setExporting({ kind: "run", id: r.id, label: r.label ?? r.id.slice(0, 8) })} />
   ) : <div className="empty">Loading…</div>;
-  const sky = WEBGL.ok ? (
+  const openDataset = (dataset: string, observationId: string | null, pickedRun?: RunSummary) => {
+    const next = base?.datasets.find((d) => d.id === dataset);
+    if (!base || !next) return;
+    if (base.dataset?.id !== dataset) {
+      setBase({ ...base, dataset: next }); setDefaultRun(undefined); setActiveRunIdState(null); setBrowserRun(null);
+      try { localStorage.removeItem("delta.activeRun"); } catch { /* Session-only selection. */ }
+      setTargets([]);
+    }
+    if (pickedRun) { setBrowserRun(pickedRun); setActiveRunId(pickedRun.id); }
+    if (observationId !== selected || (pickedRun && pickedRun.id !== runId) || base.dataset?.id !== dataset) {
+      setEvidence(null); setEvError(null); setObservation(null);
+    }
+    try { localStorage.setItem("delta.dataset", dataset); } catch { /* Session-only selection. */ }
+    setFocusRunId(null); setSelected(observationId);
+    setBrush(null); setFoldP(null); setCursorT(null); setCursorP(null); setQuery(""); setCls("all"); setHover(null);
+    setWorkspace("sky"); setSegment("targets"); setSide(pickedRun ? "run" : "details");
+    setTab(pickedRun ? "run" : "light"); pendingFocus.current = observationId;
+    const target = targets.find((t) => t.id === observationId);
+    if (target?.v) { camera.flyTo(target.v, motion.get() === "animated"); pendingFocus.current = null; }
+  };
+  const datasetBrowser = <DatasetBrowser indexed={base?.datasets ?? []} activeDataset={base?.dataset?.id ?? null}
+    onObservation={(dataset, id) => openDataset(dataset, id)} onRun={(dataset, run) => openDataset(dataset, null, run)} />;
+  const sky = (
     <SkyBoundary>
       <SkyView targets={targets} stars={stars} lines={lines} hover={hover} selected={selected} matches={matches} onHover={setHover} onSelect={select} flagged={flagged} />
     </SkyBoundary>
-  ) : <SkyUnavailable reason={WEBGL.reason} />;
+  );
   const candidateTable = (wide: boolean, list: Candidate[] | null) => (
     <CandidateTable list={list} targetsById={targetsById} campaigns={campaigns} selected={record} wide={wide} onSelect={openCandidate} />
   );
@@ -347,7 +377,7 @@ function Workbench({ me }: { me: Me | null }) {
   if (compact) {
     const plotTab = tab === "light" || tab === "pgram" || tab === "fold";
     return (
-      <div className="app compact">
+      <div className={`app compact${tab === "datasets" ? " browsing-datasets" : ""}`}>
         <div className="bar">
           <span className="brand">DELTA OBSERVATORY</span>
           <span className="seg">api <b className={base ? "ok" : error ? "bad" : ""}>{base ? base.health.status : error ? "error" : "…"}</b></span>
@@ -371,6 +401,7 @@ function Workbench({ me }: { me: Me | null }) {
           {TABS.map(([k, label]) => <button key={k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}>{label}</button>)}
         </nav>
         <div className="pane">
+          {tab === "datasets" && <div className="pane-fill">{datasetBrowser}</div>}
           <div className={tab === "targets" ? "pane-fill" : "hidden"}>{catalogue}</div>
           <div className={plotTab ? `pane-fill bench-one${benchEvidence && !fresh ? " stale" : ""}` : "hidden"}>
             {benchEvidence ? (
@@ -386,7 +417,7 @@ function Workbench({ me }: { me: Me | null }) {
                   </div>
                 )}
               </>
-            ) : evError ? <RunsHolding message={evError} observationId={selected} onShow={showRun} /> : <div className="empty">{current ? "Loading the result artifacts…" : "Select a target in Targets or on the sky."}</div>}
+            ) : evError ? <RunsHolding message={evError} observationId={selected} onShow={showRun} /> : <div className="empty">{current ? (evRunId ? "Loading the result artifacts…" : "No analysis run is selected. Open Run to select results.") : "Select a target in Targets or on the sky."}</div>}
           </div>
           <div className={tab === "details" ? "pane-fill details" : "hidden"}>{inspector}</div>
           <div className={tab === "run" ? "pane-fill details" : "hidden"}>{runPanel}</div>
@@ -427,7 +458,7 @@ function Workbench({ me }: { me: Me | null }) {
   const sidePanel = shownSide === "details" ? inspector : shownSide === "run" ? runPanel : shownSide === "records" ? recordsPanel : compareSide;
 
   return (
-    <div className="app">
+    <div className={`app${workspace === "datasets" ? " dataset-workspace" : ""}`}>
       <div className="bar">
         <span className="brand">DELTA OBSERVATORY</span>
         <span className="seg">dataset <b>{base?.dataset?.id ?? "—"}</b> · <b>{base?.dataset?.observation_counts.ready ?? "—"}</b> ready</span>
@@ -440,7 +471,7 @@ function Workbench({ me }: { me: Me | null }) {
           {motionButton}
         <span className="tabs">
           <button className={workspace === "sky" ? "on" : ""} onClick={() => setWorkspace("sky")}>SKY</button>
-          <button disabled title="The DATASETS workspace is not implemented.">DATASETS</button>
+          <button className={workspace === "datasets" ? "on" : ""} onClick={() => setWorkspace("datasets")}>DATASETS</button>
           <button className={workspace === "analysis" ? "on" : ""} onClick={() => { setWorkspace("analysis"); setSide("compare"); }}>ANALYSIS</button>
           <button className={workspace === "evidence" ? "on" : ""} onClick={() => { setWorkspace("evidence"); setSide("records"); }}>EVIDENCE</button>
         </span>
@@ -451,6 +482,7 @@ function Workbench({ me }: { me: Me | null }) {
         <AllSky targets={targets} stars={stars} selected={selected} matches={matches} sky={skyCell} flagged={flagged} />
         <div className="hud keys"><b>drag</b> turn · <b>wheel</b> zoom · <b>click</b> select · <b>/</b> search · <b>j</b> <b>k</b> next, previous · <b>f</b> turn to selection · <b>+</b> <b>−</b> zoom</div>
         {error && <div className="error">API error. {error}</div>}
+        {workspace === "datasets" && <section className="ws-layer">{datasetBrowser}</section>}
         {workspace === "analysis" && <section className="ws-layer">{comparePanel(false)}</section>}
         {workspace === "evidence" && evidenceLayer}
       </div>
@@ -472,7 +504,7 @@ function Workbench({ me }: { me: Me | null }) {
               {status}
               {focusNote}
             </>
-          ) : evError ? <RunsHolding message={evError} observationId={selected} onShow={showRun} /> : <div className="empty">{current ? "Loading the result artifacts…" : "No target selected."}</div>}
+          ) : evError ? <RunsHolding message={evError} observationId={selected} onShow={showRun} /> : <div className="empty">{current ? (evRunId ? "Loading the result artifacts…" : "No analysis run is selected. Open Run to select results.") : "No target selected."}</div>}
         </div>
       )}
       <section className="panel inspector">

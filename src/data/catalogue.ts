@@ -31,6 +31,7 @@ export interface Target {
 export interface Base {
   health: Health;
   dataset: Dataset | null;
+  datasets: Dataset[];
   methods: Map<string, MethodInfo>;
   loadMs: number;
 }
@@ -38,9 +39,12 @@ export interface Base {
 export async function loadBase(): Promise<Base> {
   const t0 = performance.now();
   const [health, datasets, methodList] = await Promise.all([getJson<Health>("/health"), getJson<Dataset[]>("/datasets"), getJson<MethodInfo[]>("/methods")]);
+  let remembered: string | null = null;
+  try { remembered = localStorage.getItem("delta.dataset"); } catch { /* Use the API default. */ }
   return {
     health,
-    dataset: datasets.find((d) => (d.observation_counts.ready ?? 0) > 0) ?? datasets[0] ?? null,
+    datasets,
+    dataset: datasets.find((d) => d.id === remembered) ?? datasets.find((d) => (d.observation_counts.ready ?? 0) > 0) ?? datasets[0] ?? null,
     methods: new Map(methodList.map((m) => [`${m.id}/${m.version}`, m])),
     loadMs: performance.now() - t0,
   };
