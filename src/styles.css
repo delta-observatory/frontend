@@ -484,3 +484,19 @@ tr.job-err b { color: var(--st-miss); font-weight: 500; }
 .signin form{width:min(480px,calc(100vw - 36px));padding:34px;gap:18px;border-radius:8px;background:#090e17}.signin h1{font-size:28px;line-height:1.2;font-weight:500;margin:8px 0 0}.signin p{line-height:1.6;margin:0}.signin .note{line-height:1.5;color:#9aabba}.signin button{padding:11px 14px;cursor:pointer;border-radius:3px}.signin .token-field{display:flex;gap:6px}.signin .token-field input{flex:1;min-width:0}.signin .token-field button{width:65px}.signin .signin-check{display:flex;align-items:center;gap:10px}.signin input[type=checkbox]{width:auto;accent-color:#b5cdec}.signin-overlay{z-index:1000}
 
 .signin{font:14px/1.5 var(--sans)}.signin p{color:#a4afbd}.signin button:not(.primary-action){background:#0b1422;border:1px solid #34465f;color:#d3dae3}.signin button:hover:not(:disabled){filter:brightness(1.15)}.signin label{font:13px var(--sans);letter-spacing:0;text-transform:none;color:#c8d4e4}.signin form{max-height:calc(100vh - 32px);overflow:auto}
+
+.provider-choices {display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:18px 0;}
+.provider-choices button {display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:18px;text-align:left;}
+.provider-choices button span {font-size:12px;color:var(--dim);font-weight:400;}
+.provider-choices button.selected {border-color:#8baacf;background:rgba(96,165,250,.08);}
+.provider-onboarding {max-width:700px;margin:8vh auto;padding:24px;}
+.provider-onboarding>.brand {display:block;margin-bottom:24px;}
+.provider-onboarding>.primary-action {margin-top:20px;}
+.signin .provider-choices {grid-template-columns:1fr;width:100%;}
+@media(max-width:600px){.provider-choices{grid-template-columns:1fr}.provider-onboarding{margin:24px auto;padding:16px;}}
+
+.provider-onboarding {height:100vh;max-height:100vh;margin:0 auto;padding-top:6vh;overflow:auto;font:13px/1.5 var(--sans);}
+.provider-onboarding button,.provider-onboarding select,.provider-onboarding input {font:inherit;color:var(--text);background:#090e17;border:1px solid #334256;border-radius:3px;padding:8px 10px;}
+.provider-onboarding button {cursor:pointer;}.provider-onboarding button:disabled {opacity:.5;cursor:default;}
+.provider-onboarding .product-card {padding:24px;}.provider-onboarding h2 {font-size:23px;}
+.provider-onboarding .provider-choices button {padding:18px;}.provider-onboarding .brand {letter-spacing:.18em;}

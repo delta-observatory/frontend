@@ -22,6 +22,7 @@ export const session = {
       sessionStorage.removeItem('delta.browsing');
       sessionStorage.removeItem('delta.current-investigation');sessionStorage.removeItem('delta.open-investigation');
       if(next)(remember?localStorage:sessionStorage).setItem(TOKEN_KEY,next);
+      else sessionStorage.removeItem('delta.provider-onboarding');
     } catch { /* The token stays for this page only. */ }
     for (const l of listeners) l();
     // A new document clears every cached result when the client identity changes.
