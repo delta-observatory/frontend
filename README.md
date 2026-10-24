@@ -248,12 +248,16 @@ It preserves revisions, exact approvals, branches, execution records, and steeri
 The archive controls show bounded MAST products before download approval.
 Evidence panels reuse the light curve, periodogram, phase plot, run comparison, assessment, and export controls.
 
-The native desktop provides optional Codex login for an approved investigation.
+The native desktop starts with workspace login and an optional read-only mode.
+LAN browsers accept a workspace token, with optional persistent storage.
+Settings provides workspace access, provider login, appearance, storage, backup, reproduction, and diagnostics.
+Provider login supports ChatGPT browser authorization, device codes, and OpenAI API keys before an investigation exists.
+The provider connection remains available when the user changes application views.
 The checked model is `gpt-5.4`. The account must offer this model.
 The owner must consent before the host sends permitted evidence to the provider.
 Manual controls remain available without a model connection.
 
-Workspace settings provide storage limits, imports, backups, recovery, diagnostics, and release metadata checks.
+The native Settings sections provide storage limits, imports, backups, recovery, diagnostics, and release metadata checks.
 A portable reproduction package can include original observations with explicit selection.
 An imported package prepares a new plan with the original parameters and checked input hashes.
 The person approves this plan before execution.

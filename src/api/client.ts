@@ -9,18 +9,27 @@ export class ApiError extends Error {
 }
 
 const TOKEN_KEY = "delta.token";
-let token: string | null = (() => { try { return localStorage.getItem(TOKEN_KEY); } catch { return null; } })();
+let token: string | null = (() => { try { return sessionStorage.getItem(TOKEN_KEY) ?? localStorage.getItem(TOKEN_KEY); } catch { return null; } })();
 const listeners = new Set<() => void>();
 
 export const session = {
   token: () => token,
   /** Stores the token. A null token signs out. */
-  set(next: string | null) {
+  set(next: string | null, remember = false) {
     token = next;
-    try { if (next) localStorage.setItem(TOKEN_KEY, next); else localStorage.removeItem(TOKEN_KEY); } catch { /* The token stays for this page only. */ }
+    try {
+      localStorage.removeItem(TOKEN_KEY);sessionStorage.removeItem(TOKEN_KEY);
+      sessionStorage.removeItem('delta.browsing');
+      sessionStorage.removeItem('delta.current-investigation');sessionStorage.removeItem('delta.open-investigation');
+      if(next)(remember?localStorage:sessionStorage).setItem(TOKEN_KEY,next);
+    } catch { /* The token stays for this page only. */ }
     for (const l of listeners) l();
     // A new document clears every cached result when the client identity changes.
     location.reload();
+  },
+  async signOut() {
+    try {if(window.deltaDesktop)await window.deltaDesktop.signOut();}
+    finally {session.set(null);}
   },
   subscribe(l: () => void) { listeners.add(l); return () => { listeners.delete(l); }; },
 };
@@ -31,7 +40,7 @@ export async function apiFetch(url: string, init: RequestInit = {}): Promise<Res
   if (token) headers.set("Authorization", `Bearer ${token}`);
   const path = !headers.has("Authorization") && url.startsWith("/api/") ? `/gui-api/${url.slice(5)}` : url;
   const res = await fetch(path, { cache: "no-store", ...init, headers });
-  if (res.status === 401 && token) session.set(null);
+  if (res.status === 401 && token) await session.signOut();
   return res;
 }
 
