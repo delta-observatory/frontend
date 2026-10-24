@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { useSignIn } from "./SignIn";
+import { DesktopSettings } from "./investigations/DesktopSettings";
+import { Operations } from "./investigations/Operations";
+import { Investigations } from "./investigations/Investigations";
 import { Explore } from "./explore/Explore";
 import { DatasetBrowser } from "./datasets/Browser";
 import { Catalogue, type Segment } from "./Catalogue";
@@ -72,6 +75,10 @@ function Workbench({ me }: { me: Me | null }) {
   const [defaultRun, setDefaultRun] = useState<RunSummary | null | undefined>(undefined);
   const [observation, setObservation] = useState<ObservationDetail | null>(null);
   const [side, setSide] = useState<Side>("details");
+  const [showSettings,setShowSettings]=useState(false);
+  useEffect(()=>{const open=()=>setShowSettings(true);window.addEventListener('delta:settings-open',open);return()=>window.removeEventListener('delta:settings-open',open);},[]);
+  const [showOperations,setShowOperations]=useState(false);
+  const [showInvestigations, setShowInvestigations] = useState(() => new URLSearchParams(location.search).has("investigations"));
   const [workspace, setWorkspace] = useState<Workspace>("explore");
   const [segment, setSegment] = useState<Segment>("targets");
   const [record, setRecord] = useState<Selection>(null);
@@ -257,7 +264,11 @@ function Workbench({ me }: { me: Me | null }) {
   // Keys: / search, j and k next and previous, f turn to the selection, + and − zoom.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((!compact && workspace === "explore") || (compact && tab === "explore") || workspace === "datasets" || (compact && tab === "datasets")) return;
+      if (showSettings) return <DesktopSettings onClose={()=>setShowSettings(false)} onInvestigation={id=>{sessionStorage.setItem('delta.open-investigation',id);setShowSettings(false);setShowInvestigations(true);}}/>;
+  if (showOperations) return <Operations onClose={() => setShowOperations(false)}/>;
+  if (showInvestigations) return <><Investigations onSettings={()=>setShowSettings(true)} onOperations={()=>setShowOperations(true)} me={me} onClose={() => setShowInvestigations(false)} onRun={id => { showRun(id); setWorkspace("sky"); setTab("light"); setShowInvestigations(false); }} onCompare={id => { openCompare(id); setWorkspace("analysis"); setTab("compare"); setShowInvestigations(false); }} onExport={id => setExporting({ kind:"run", id, label:id.slice(0,8) })} />{exportDialog}</>;
+
+  if ((!compact && workspace === "explore") || (compact && tab === "explore") || workspace === "datasets" || (compact && tab === "datasets")) return;
       if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
       if (e.key === "Escape" && !(e.target instanceof HTMLInputElement)) { setBrush(null); setFoldP(null); return; }
       if (e.target instanceof HTMLInputElement) {
@@ -377,10 +388,14 @@ function Workbench({ me }: { me: Me | null }) {
   const filtered = useMemo(() => filterCandidates(recordLists.candidates ?? [], candFilter, (c) => candidateTarget(c, targetsById)), [recordLists.candidates, candFilter, targetsById]);
   const writers = useMemo(() => [...new Set((recordLists.candidates ?? []).map((c) => c.actor.name))].sort(), [recordLists.candidates]);
 
+  if (showSettings) return <DesktopSettings onClose={()=>setShowSettings(false)} onInvestigation={id=>{sessionStorage.setItem('delta.open-investigation',id);setShowSettings(false);setShowInvestigations(true);}}/>;
+  if (showOperations) return <Operations onClose={() => setShowOperations(false)}/>;
+  if (showInvestigations) return <><Investigations onSettings={()=>setShowSettings(true)} onOperations={()=>setShowOperations(true)} me={me} onClose={() => setShowInvestigations(false)} onRun={id => { showRun(id); setWorkspace("sky"); setTab("light"); setShowInvestigations(false); }} onCompare={id => { openCompare(id); setWorkspace("analysis"); setTab("compare"); setShowInvestigations(false); }} onExport={id => setExporting({ kind:"run", id, label:id.slice(0,8) })} />{exportDialog}</>;
+
   if ((!compact && workspace === "explore") || (compact && tab === "explore")) {
     return <div className="app explore-workspace">
       <div className="bar"><span className="brand">DELTA OBSERVATORY</span><span className="seg">api <b>{base?.health.status ?? "…"}</b></span>{whoButton}
-        <nav className="tabs"><button className="on">EXPLORE</button><button onClick={() => { setWorkspace("sky"); setTab("targets"); }}>SKY</button><button onClick={() => { setWorkspace("datasets"); setTab("datasets"); }}>DATASETS</button><button onClick={() => { setWorkspace("analysis"); setTab("compare"); setSide("compare"); }}>ANALYSIS</button><button onClick={() => { setWorkspace("evidence"); setTab("records"); setSide("records"); }}>EVIDENCE</button></nav>
+        <nav className="tabs"><button onClick={()=>setShowSettings(true)}>Workspace</button><button onClick={()=>setShowOperations(true)}>All operations</button><button onClick={() => setShowInvestigations(true)}>INVESTIGATIONS</button><button className="on">EXPLORE</button><button onClick={() => { setWorkspace("sky"); setTab("targets"); }}>SKY</button><button onClick={() => { setWorkspace("datasets"); setTab("datasets"); }}>DATASETS</button><button onClick={() => { setWorkspace("analysis"); setTab("compare"); setSide("compare"); }}>ANALYSIS</button><button onClick={() => { setWorkspace("evidence"); setTab("records"); setSide("records"); }}>EVIDENCE</button></nav>
       </div>
       {error && !base ? <div className="error-inline">{error}</div> : me && <Explore base={base} runs={runs} records={recordLists} person={me.kind !== "agent"} refreshRuns={refreshRuns} onStartedRun={expectRun} onCompare={(id) => { openCompare(id); setTab("compare"); }} onExport={setExporting} />}
       {exportDialog}
@@ -411,7 +426,7 @@ function Workbench({ me }: { me: Me | null }) {
           <button onClick={() => step(1)} aria-label="Next target">›</button>
         </div>
         <nav className="mtabs">
-          {TABS.map(([k, label]) => <button key={k} className={tab === k ? "on" : ""} onClick={() => { setTab(k); if (k === "explore") setWorkspace("explore"); }}>{label}</button>)}
+          <button onClick={()=>setShowSettings(true)}>Workspace</button><button onClick={()=>setShowOperations(true)}>All operations</button><button onClick={() => setShowInvestigations(true)}>Investigations</button>{TABS.map(([k, label]) => <button key={k} className={tab === k ? "on" : ""} onClick={() => { setTab(k); if (k === "explore") setWorkspace("explore"); }}>{label}</button>)}
         </nav>
         <div className="pane">
           {tab === "datasets" && <div className="pane-fill">{datasetBrowser}</div>}
@@ -483,7 +498,7 @@ function Workbench({ me }: { me: Me | null }) {
         {whoButton}
           {motionButton}
         <span className="tabs">
-          <button onClick={() => { setWorkspace("explore"); setTab("explore"); }}>EXPLORE</button>
+          <button onClick={()=>setShowSettings(true)}>Workspace</button><button onClick={()=>setShowOperations(true)}>All operations</button><button onClick={() => setShowInvestigations(true)}>INVESTIGATIONS</button><button onClick={() => { setWorkspace("explore"); setTab("explore"); }}>EXPLORE</button>
           <button className={workspace === "sky" ? "on" : ""} onClick={() => setWorkspace("sky")}>SKY</button>
           <button className={workspace === "datasets" ? "on" : ""} onClick={() => setWorkspace("datasets")}>DATASETS</button>
           <button className={workspace === "analysis" ? "on" : ""} onClick={() => { setWorkspace("analysis"); setSide("compare"); }}>ANALYSIS</button>

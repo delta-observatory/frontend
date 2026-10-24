@@ -27,6 +27,8 @@ interface Download { name: string; bytes: number; header: string | null; buf: Ui
 
 /** Export of a run or a candidate (contract export/1): choice of artifact files, download, and a check of every file in the browser. */
 export function ExportDialog({ subject, onClose }: { subject: ExportSubject; onClose: () => void }) {
+  const [includeInputs,setIncludeInputs]=useState(false);
+  const [portableResult,setPortableResult]=useState('');
   const [mode, setMode] = useState<"none" | "all">("none");
   const [sizes, setSizes] = useState<Sizes | null>(null);
   const [busy, setBusy] = useState(false);
@@ -83,6 +85,7 @@ export function ExportDialog({ subject, onClose }: { subject: ExportSubject; onC
           <span><b>Records and artifact files</b><span className="small">
             {s ? `Adds ${s.jobArtifacts + s.lightCurves} stored artifact files: ${mb(s.jobBytes + s.lightBytes)}, of which ${s.lightCurves} light curves ${mb(s.lightBytes)}. ` : "Adds the stored artifact files. "}
             The files keep their stored bytes, so each SHA-256 equals the stored SHA-256.</span></span></label>
+        {subject.kind==='run'&&window.deltaDesktop&&<fieldset><legend>Portable reproduction package</legend><p>The package preserves evidence, plan records, parameters, software versions, and input checksums.</p><label className="opt"><input type="checkbox" checked={includeInputs} onChange={e=>setIncludeInputs(e.target.checked)}/>Include original observation files</label><p>Without observations, the receiving workspace must acquire or import the exact files.</p><button disabled={busy} onClick={async()=>{setBusy(true);setError(null);try{const result=await window.deltaDesktop!.settings<{path?:string}>('exportReproduction',{run_id:subject.id,include_inputs:includeInputs});setPortableResult(result.path?'Saved: '+result.path:'Export cancelled.');}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}>Save reproduction package</button>{portableResult&&<p>{portableResult}</p>}</fieldset>}
         <div className="res">
           {error && <div className="error-inline">{error}</div>}
           {dl ? <>

@@ -240,3 +240,26 @@ The backend owns these responses. The measurement fields follow `database/contra
 
 The code is under the [MIT License](LICENSE).
 The sky star and constellation files come from d3-celestial under the BSD 3-Clause license. [public/sky/SOURCE.md](public/sky/SOURCE.md) gives the source and the notice.
+
+## Desktop investigation workflow
+
+The Investigations workspace provides guided and user-selected TESS plans.
+It preserves revisions, exact approvals, branches, execution records, and steering instructions.
+The archive controls show bounded MAST products before download approval.
+Evidence panels reuse the light curve, periodogram, phase plot, run comparison, assessment, and export controls.
+
+The native desktop provides optional Codex login for an approved investigation.
+The checked model is `gpt-5.4`. The account must offer this model.
+The owner must consent before the host sends permitted evidence to the provider.
+Manual controls remain available without a model connection.
+
+Workspace settings provide storage limits, imports, backups, recovery, diagnostics, and release metadata checks.
+A portable reproduction package can include original observations with explicit selection.
+An imported package prepares a new plan with the original parameters and checked input hashes.
+The person approves this plan before execution.
+The comparison report distinguishes numerical agreement from runtime agreement and scientific uncertainty.
+
+All operations provides generated forms for every current API operation.
+The forms use expanded canonical schemas from the API.
+The API applies the same permissions to these forms and agent calls.
+Native file and credential controls require the desktop application.
